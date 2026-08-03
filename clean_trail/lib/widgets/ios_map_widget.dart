@@ -9,12 +9,16 @@ import '../models/course.dart';
 class IosMapWidget extends StatefulWidget {
   final PloggingCourse? selectedCourse;
   final bool isMissionActive;
+  final double userLatitude;
+  final double userLongitude;
   final Function(PloggingCourse)? onSelectCourse;
 
   const IosMapWidget({
     super.key,
     this.selectedCourse,
     this.isMissionActive = false,
+    this.userLatitude = 35.1796, // 디폴트 가상 사용자 위치 (부산)
+    this.userLongitude = 129.0756,
     this.onSelectCourse,
   });
 
@@ -60,6 +64,23 @@ class _IosMapWidgetState extends State<IosMapWidget> {
     }
   }
 
+  void _updateUserLocationOverlayAndCamera({bool moveCamera = true}) {
+    if (_mapController == null) return;
+
+    final locationOverlay = _mapController!.getLocationOverlay();
+    locationOverlay.setIsVisible(true);
+    locationOverlay.setPosition(NLatLng(widget.userLatitude, widget.userLongitude));
+
+    if (moveCamera) {
+      _mapController!.updateCamera(
+        NCameraUpdate.withParams(
+          target: NLatLng(widget.userLatitude, widget.userLongitude),
+          zoom: 14.0,
+        ),
+      );
+    }
+  }
+
 
   @override
   void didUpdateWidget(covariant IosMapWidget oldWidget) {
@@ -68,6 +89,9 @@ class _IosMapWidgetState extends State<IosMapWidget> {
       if (oldWidget.selectedCourse?.id != widget.selectedCourse?.id ||
           oldWidget.isMissionActive != widget.isMissionActive) {
         _updateMapOverlaysAndCamera();
+      } else if (oldWidget.userLatitude != widget.userLatitude ||
+          oldWidget.userLongitude != widget.userLongitude) {
+        _updateUserLocationOverlayAndCamera(moveCamera: widget.selectedCourse == null);
       }
     }
   }
@@ -76,9 +100,8 @@ class _IosMapWidgetState extends State<IosMapWidget> {
     _mapController = controller;
     _isMapReady = true;
 
-    // 내 위치 표시 설정 활성화 (getLocationOverlay는 동기 호출)
-    final locationOverlay = controller.getLocationOverlay();
-    locationOverlay.setIsVisible(true);
+    // 내 위치 표시 및 카메라 이동 설정
+    _updateUserLocationOverlayAndCamera(moveCamera: widget.selectedCourse == null);
 
     _updateMapOverlaysAndCamera();
   }
@@ -91,13 +114,8 @@ class _IosMapWidgetState extends State<IosMapWidget> {
 
     final course = widget.selectedCourse;
     if (course == null) {
-      // 선택된 코스가 없는 경우, 기본 지도 위치 (속초 시내 중심)로 카메라 이동
-      _mapController!.updateCamera(
-        NCameraUpdate.withParams(
-          target: const NLatLng(38.2118, 128.5995),
-          zoom: 13.0,
-        ),
-      );
+      // 선택된 코스가 없는 경우, 가상 사용자 위치를 중심으로 카메라 리핏팅
+      _updateUserLocationOverlayAndCamera(moveCamera: true);
       return;
     }
 

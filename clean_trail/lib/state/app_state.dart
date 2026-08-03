@@ -29,6 +29,16 @@ class AppState extends ChangeNotifier {
   String? _loginType; // 'email', 'google', 'naver'
   String get loginType => _loginType ?? 'none';
 
+  // 가상 사용자 위치 관련 필드 (New)
+  double _userLatitude = 35.1796; // 부산 기본값
+  double get userLatitude => _userLatitude;
+
+  double _userLongitude = 129.0756;
+  double get userLongitude => _userLongitude;
+
+  String _userLocationName = '부산광역시청 일대 (가상)';
+  String get userLocationName => _userLocationName;
+
   // Courses list
   List<PloggingCourse> _courses = [];
   List<PloggingCourse> get courses => _courses;
@@ -184,6 +194,15 @@ class AppState extends ChangeNotifier {
     // 상태 복구
     _currentTab = 0;
     _onboarded = false;
+    notifyListeners();
+  }
+
+  // 가상 위치 실시간 변경 처리 (New)
+  void setVirtualLocation(double lat, double lng, String name) {
+    _userLatitude = lat;
+    _userLongitude = lng;
+    _userLocationName = name;
+    _locationPermissionGranted = true; // 가상 위치 스위칭 시 위치 수집 활성화 처리
     notifyListeners();
   }
 

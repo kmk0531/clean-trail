@@ -20,6 +20,100 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   ScrollPhysics _scrollPhysics = const BouncingScrollPhysics();
 
+  void _showLocationSelectionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            '가상 사용자 위치 변경',
+            style: TextStyle(
+              fontFamily: '-apple-system',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF233529),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '앱 내의 내 위치 및 지도의 중심 좌표를 선택한 도시로 임시 전환합니다.',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildLocationOption(context, '부산 (기본값)', 35.1796, 129.0756, '부산광역시청 일대 (가상)'),
+              _buildLocationOption(context, '속초 (코스 주변)', 38.1913, 128.6035, '속초 해수욕장 일대 (가상)'),
+              _buildLocationOption(context, '강릉 (코스 주변)', 37.7981, 128.9133, '강릉 경포호수 일대 (가상)'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('닫기', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLocationOption(BuildContext context, String title, double lat, double lng, String name) {
+    final isSelected = widget.appState.userLatitude == lat && widget.appState.userLongitude == lng;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFFE6F4EA) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? const Color(0xFFC2E2CC) : Colors.grey[200]!,
+          width: 1,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontFamily: '-apple-system',
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? const Color(0xFF2F7D4F) : const Color(0xFF233529),
+          ),
+        ),
+        subtitle: Text(
+          name, 
+          style: TextStyle(
+            fontFamily: '-apple-system', 
+            fontSize: 10,
+            color: isSelected ? const Color(0xFF5C6F61) : Colors.grey,
+          ),
+        ),
+        trailing: isSelected 
+            ? const Icon(Icons.check_circle, color: Color(0xFF2F7D4F), size: 20) 
+            : const Icon(Icons.circle_outlined, color: Colors.grey, size: 20),
+        onTap: () {
+          widget.appState.setVirtualLocation(lat, lng, name);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('사용자 가상 위치가 $title(으)로 전환되었습니다.'),
+              duration: const Duration(seconds: 1),
+              backgroundColor: const Color(0xFF2F7D4F),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -39,35 +133,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 border: Border.all(color: const Color(0xFFE2EBE5)),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(
-                    Icons.location_on,
-                    color: Color(0xFF2F7D4F),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      const Text(
-                        '현재 위치',
-                        style: TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 10,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const Icon(
+                        Icons.location_on,
+                        color: Color(0xFF2F7D4F),
+                        size: 20,
                       ),
-                      Text(
-                        widget.appState.locationPermissionGranted ? '○○ 해수욕장 관광단지' : '위치 권한 미정 (기본 설정)',
-                        style: const TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF233529),
-                        ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '현재 위치',
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 10,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            widget.appState.userLocationName,
+                            style: const TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF233529),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
+                  ),
+                  // Location Switch Button (New)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: const Color(0xFFE6F4EA),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.swap_horiz, size: 14, color: Color(0xFF2F7D4F)),
+                    label: const Text(
+                      '변경',
+                      style: TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2F7D4F),
+                      ),
+                    ),
+                    onPressed: () => _showLocationSelectionDialog(context),
                   ),
                 ],
               ),
@@ -107,6 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 280,
                 child: IosMapWidget(
                   selectedCourse: widget.appState.selectedCourse,
+                  userLatitude: widget.appState.userLatitude,
+                  userLongitude: widget.appState.userLongitude,
                   onSelectCourse: (course) {
                     widget.onCourseSelected(course);
                   },
