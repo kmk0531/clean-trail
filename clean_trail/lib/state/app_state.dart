@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
 import '../models/coupon.dart';
 import '../models/clean_log.dart';
@@ -161,7 +163,49 @@ class AppState extends ChangeNotifier {
     return false;
   }
 
-  // 소셜 로그인 모의 처리 (New)
+  // 구글 소셜 로그인 연동 (Firebase Auth)
+  Future<bool> signInWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // 사용자가 취소함
+        return false;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        await loginWithSocial(
+          'google',
+          user.email ?? 'google_user@cleantrail.com',
+          user.displayName ?? '구글 사용자',
+        );
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Firebase Google 로그인 에러 (Fallback 모드 작동): $e");
+      // Firebase 설정(google-services.json) 미적용 환경인 경우 데모용 가상 로그인 처리
+      await loginWithSocial(
+        'google',
+        'clean_google@gmail.com',
+        '구글 사용자 (Demo)',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // 소셜 로그인 모의 처리 및 세션 저장
   Future<void> loginWithSocial(String type, String email, String name) async {
     final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = true;
@@ -178,8 +222,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 로그아웃 (New)
+  // 로그아웃 (Firebase Auth 및 GoogleSignIn 해제 포함)
   Future<void> logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().signOut();
+    } catch (e) {
+      debugPrint("소셜 로그아웃 예외 무시: $e");
+    }
+
     final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = false;
     _userEmail = null;

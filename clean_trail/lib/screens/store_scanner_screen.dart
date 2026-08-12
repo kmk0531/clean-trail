@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../models/coupon.dart';
-import '../widgets/ios_button.dart';
 
 class StoreScannerScreen extends StatefulWidget {
   final AppState appState;
