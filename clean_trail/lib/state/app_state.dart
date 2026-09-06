@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +9,18 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
 import '../models/coupon.dart';
 import '../models/clean_log.dart';
+
+/// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
+String _generateSalt([int length = 16]) {
+  final random = Random.secure();
+  final bytes = List<int>.generate(length, (_) => random.nextInt(256));
+  return base64UrlEncode(bytes);
+}
+
+String _hashPassword(String password, String salt) {
+  final bytes = utf8.encode('$salt:$password');
+  return sha256.convert(bytes).toString();
+}
 
 class AppState extends ChangeNotifier {
   // Navigation & Onboarding State
@@ -129,8 +144,10 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // 사용자 추가 (email:password:name 포맷으로 가짜 DB 기록)
-    users.add('$email:$password:$name');
+    // 사용자 추가 (email:salt:passwordHash:name 포맷, 비밀번호는 평문 저장하지 않음)
+    final salt = _generateSalt();
+    final hash = _hashPassword(password, salt);
+    users.add('$email:$salt:$hash:$name');
     await prefs.setStringList('local_users', users);
 
     // 가입 성공 시 자동 로그인 연계
@@ -144,10 +161,17 @@ class AppState extends ChangeNotifier {
 
     for (var u in users) {
       final parts = u.split(':');
-      if (parts.length >= 3 && parts[0] == email && parts[1] == password) {
+      if (parts.length < 4 || parts[0] != email) continue;
+
+      final salt = parts[1];
+      final storedHash = parts[2];
+      final name = parts.sublist(3).join(':');
+      final inputHash = _hashPassword(password, salt);
+
+      if (storedHash == inputHash) {
         _isLoggedIn = true;
         _userEmail = email;
-        _userName = parts[2];
+        _userName = name;
         _loginType = 'email';
 
         await prefs.setBool('isLoggedIn', true);
@@ -159,6 +183,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
         return true;
       }
+      return false;
     }
     return false;
   }
