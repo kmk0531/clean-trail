@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
 import '../models/coupon.dart';
 import '../models/clean_log.dart';
+import '../services/tour_api_service.dart';
 
 /// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
 String _generateSalt([int length = 16]) {
@@ -59,6 +60,10 @@ class AppState extends ChangeNotifier {
   // Courses list
   List<PloggingCourse> _courses = [];
   List<PloggingCourse> get courses => _courses;
+
+  // 한국관광공사 TourAPI 연동 상태 (New)
+  bool _isLoadingNearbySpots = false;
+  bool get isLoadingNearbySpots => _isLoadingNearbySpots;
 
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
@@ -114,6 +119,7 @@ class AppState extends ChangeNotifier {
   AppState() {
     _initializeMockData();
     _loadSession(); // 기기 내 저장된 유저 세션 정보 로딩
+    refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
   }
 
   // 기기 내 저장된 유저 세션 정보 로딩 (New)
@@ -280,6 +286,43 @@ class AppState extends ChangeNotifier {
     _userLocationName = name;
     _locationPermissionGranted = true; // 가상 위치 스위칭 시 위치 수집 활성화 처리
     notifyListeners();
+
+    // 위치가 바뀌면 한국관광공사 TourAPI로 주변 관광지 정보를 새로 불러온다.
+    refreshNearbySpots();
+  }
+
+  /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
+  /// 각 플로깅 코스의 추천 스팟(recommendedSpots)을 실제 관광 데이터로 갱신한다.
+  ///
+  /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 아무 것도 하지 않고
+  /// 기존 목업 추천 스팟을 그대로 유지한다 (앱 동작에 영향 없음).
+  Future<void> refreshNearbySpots() async {
+    if (!TourApiService.instance.isConfigured || _courses.isEmpty) return;
+
+    _isLoadingNearbySpots = true;
+    notifyListeners();
+
+    try {
+      final spots = await TourApiService.instance.fetchNearbySpots(
+        latitude: _userLatitude,
+        longitude: _userLongitude,
+        radiusMeters: 3000,
+      );
+
+      if (spots.isNotEmpty) {
+        // 코스별로 겹치지 않게 추천 스팟을 순서대로 나눠 배분한다.
+        final perCourse = (spots.length / _courses.length).ceil().clamp(1, 4);
+        _courses = List.generate(_courses.length, (i) {
+          final start = i * perCourse;
+          if (start >= spots.length) return _courses[i];
+          final end = (start + perCourse).clamp(0, spots.length);
+          return _courses[i].copyWith(recommendedSpots: spots.sublist(start, end));
+        });
+      }
+    } finally {
+      _isLoadingNearbySpots = false;
+      notifyListeners();
+    }
   }
 
   void _initializeMockData() {
