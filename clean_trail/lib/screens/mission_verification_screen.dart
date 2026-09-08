@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import '../models/trash_item.dart';
 import '../state/app_state.dart';
 import '../widgets/ios_button.dart';
 
@@ -34,7 +34,8 @@ class MissionVerificationScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: Text('진행 중인 미션이 없습니다.')));
     }
 
-    final bool isSubmitEnabled = appState.startPhoto != null && appState.endPhoto != null;
+    final items = appState.trashItems;
+    final bool isSubmitEnabled = items.isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FBF8),
@@ -43,7 +44,6 @@ class MissionVerificationScreen extends StatelessWidget {
         elevation: 0,
         leading: TextButton(
           onPressed: () {
-            // Confirm cancel mission dialog
             _showCancelConfirmation(context);
           },
           child: const Text(
@@ -144,23 +144,42 @@ class MissionVerificationScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 28),
 
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '미션 인증 전/후 촬영',
-                          style: TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF233529),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '수거한 쓰레기 기록',
+                            style: TextStyle(
+                              fontFamily: '-apple-system',
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF233529),
+                            ),
                           ),
-                        ),
+                          if (items.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE6F4EA),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${items.length}개 수거',
+                                style: const TextStyle(
+                                  fontFamily: '-apple-system',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2F7D4F),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       const Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '코스의 시작 지점과 쓰레기 수거 봉투가 함께 담긴 사진을 업로드해주세요.',
+                          '쓰레기를 주울 때마다 사진을 찍어주세요. AI가 종류를 자동으로 분류합니다.',
                           style: TextStyle(
                             fontFamily: '-apple-system',
                             fontSize: 13,
@@ -170,26 +189,18 @@ class MissionVerificationScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 20),
 
-                      // Photo Slots
-                      _buildPhotoSlot(
-                        context,
-                        title: '① 시작 지점 사진',
-                        photo: appState.startPhoto,
-                        isUploading: appState.isStartPhotoUploading,
-                        progress: appState.startPhotoUploadProgress,
-                        onCapture: () => appState.captureStartPhoto(),
-                      ),
+                      // 촬영 버튼
+                      _buildCaptureButton(context),
 
-                      const SizedBox(height: 20),
-
-                      _buildPhotoSlot(
-                        context,
-                        title: '② 수거 완료 봉투 사진',
-                        photo: appState.endPhoto,
-                        isUploading: appState.isEndPhotoUploading,
-                        progress: appState.endPhotoUploadProgress,
-                        onCapture: () => appState.captureEndPhoto(),
-                      ),
+                      if (items.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        ...items.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildTrashLogCard(item),
+                          ),
+                        ),
+                      ],
 
                       const SizedBox(height: 24),
                     ],
@@ -205,9 +216,9 @@ class MissionVerificationScreen extends StatelessWidget {
                 width: double.infinity,
                 child: IosButton(
                   onPressed: isSubmitEnabled ? onSubmit : null,
-                  child: const Text(
-                    '인증 제출',
-                    style: TextStyle(
+                  child: Text(
+                    isSubmitEnabled ? '인증 제출 (${items.length}개)' : '인증 제출',
+                    style: const TextStyle(
                       fontFamily: '-apple-system',
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -223,176 +234,157 @@ class MissionVerificationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPhotoSlot(
-    BuildContext context, {
-    required String title,
-    required File? photo,
-    required bool isUploading,
-    required double progress,
-    required VoidCallback onCapture,
-  }) {
+  Widget _buildCaptureButton(BuildContext context) {
+    final isCapturing = appState.isCapturingTrashPhoto;
+    return GestureDetector(
+      onTap: isCapturing ? null : () => appState.captureTrashItem(),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 22),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F7F5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFD8E3DB)),
+        ),
+        child: isCapturing
+            ? const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Color(0xFF2F7D4F),
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    '카메라 여는 중…',
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2F7D4F),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '쓰레기 촬영하기',
+                    style: TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF233529),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildTrashLogCard(TrashItem item) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2EBE5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: '-apple-system',
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF233529),
-                ),
-              ),
-              if (photo != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6F4EA),
-                    borderRadius: BorderRadius.circular(8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              item.photo,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${appState.userLatitude.toStringAsFixed(4)}, ${appState.userLongitude.toStringAsFixed(4)}',
+                  style: const TextStyle(
+                    fontFamily: 'ui-monospace',
+                    fontSize: 10,
+                    color: Colors.grey,
                   ),
-                  child: const Row(
+                ),
+                const SizedBox(height: 6),
+                if (item.isClassifying)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check, color: Color(0xFF2F7D4F), size: 12),
-                      SizedBox(width: 4),
-                      Text(
-                        '촬영 완료',
-                        style: TextStyle(
-                          fontFamily: '-apple-system',
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: Color(0xFF2F7D4F),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Upload card area
-          GestureDetector(
-            onTap: (photo == null && !isUploading) ? onCapture : null,
-            child: Container(
-              height: 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F7F5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFFD8E3DB),
-                  style: photo == null ? BorderStyle.none : BorderStyle.solid,
-                ),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (photo == null && !isUploading)
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt, color: Colors.grey[400], size: 36),
-                        const SizedBox(height: 8),
-                        Text(
-                          '터치하여 촬영하기',
-                          style: TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  if (isUploading)
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 3,
-                            color: const Color(0xFF2F7D4F),
-                            backgroundColor: Colors.grey[200],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '업로드 중... ${(progress * 100).toInt()}%',
-                          style: const TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 12,
-                            color: Color(0xFF2F7D4F),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  if (photo != null && !isUploading)
-                    // 실제로 촬영된 사진을 그대로 표시
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.file(photo, fit: BoxFit.cover),
-                            // Overlay stamp info
-                            Positioned(
-                              bottom: 8,
-                              left: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'GPS STAMPED',
-                                      style: TextStyle(
-                                        fontFamily: 'ui-monospace',
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${appState.userLatitude.toStringAsFixed(4)}, ${appState.userLongitude.toStringAsFixed(4)}',
-                                      style: TextStyle(
-                                        fontFamily: 'ui-monospace',
-                                        fontSize: 9,
-                                        color: Colors.greenAccent[400],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 8),
+                      const Text(
+                        '종류 분류 중…',
+                        style: TextStyle(
+                          fontFamily: '-apple-system',
+                          fontSize: 13,
+                          color: Colors.grey,
                         ),
                       ),
+                    ],
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F4EA),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                ],
-              ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(item.category!.emoji, style: const TextStyle(fontSize: 13)),
+                        const SizedBox(width: 5),
+                        Text(
+                          item.category!.label,
+                          style: const TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2F7D4F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-          )
+          ),
+          IconButton(
+            onPressed: () => appState.removeTrashItem(item.id),
+            icon: Icon(Icons.close, color: Colors.grey[400], size: 20),
+            splashRadius: 20,
+          ),
         ],
       ),
     );

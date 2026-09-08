@@ -11,6 +11,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
 import '../models/coupon.dart';
 import '../models/clean_log.dart';
+import '../models/trash_item.dart';
 import '../services/tour_api_service.dart';
 
 /// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
@@ -82,20 +83,12 @@ class AppState extends ChangeNotifier {
 
   Timer? _missionTimer;
 
-  // Photo verification details — 실제 카메라로 촬영된 사진 파일 (New)
-  File? _startPhoto;
-  File? get startPhoto => _startPhoto;
-  bool _isStartPhotoUploading = false;
-  bool get isStartPhotoUploading => _isStartPhotoUploading;
-  double _startPhotoUploadProgress = 0.0;
-  double get startPhotoUploadProgress => _startPhotoUploadProgress;
+  // Trash item photo log — 미션 중 촬영한 쓰레기 사진 및 분류 결과 목록 (New)
+  final List<TrashItem> _trashItems = [];
+  List<TrashItem> get trashItems => List.unmodifiable(_trashItems);
 
-  File? _endPhoto;
-  File? get endPhoto => _endPhoto;
-  bool _isEndPhotoUploading = false;
-  bool get isEndPhotoUploading => _isEndPhotoUploading;
-  double _endPhotoUploadProgress = 0.0;
-  double get endPhotoUploadProgress => _endPhotoUploadProgress;
+  bool _isCapturingTrashPhoto = false;
+  bool get isCapturingTrashPhoto => _isCapturingTrashPhoto;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -535,12 +528,8 @@ class AppState extends ChangeNotifier {
     _isMissionActive = true;
     _missionStartTime = DateTime.now();
     _elapsedSeconds = 0;
-    _startPhoto = null;
-    _endPhoto = null;
-    _isStartPhotoUploading = false;
-    _startPhotoUploadProgress = 0.0;
-    _isEndPhotoUploading = false;
-    _endPhotoUploadProgress = 0.0;
+    _trashItems.clear();
+    _isCapturingTrashPhoto = false;
     _verificationState = 'idle';
 
     _missionTimer?.cancel();
@@ -552,23 +541,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 실제 기기 카메라를 열어 시작 지점 사진을 촬영한다.
-  /// 사용자가 촬영을 취소하면 아무 상태도 바뀌지 않는다.
-  Future<void> captureStartPhoto() async {
-    await _capturePhoto(isStart: true);
-  }
-
-  /// 실제 기기 카메라를 열어 수거 완료 봉투 사진을 촬영한다.
-  Future<void> captureEndPhoto() async {
-    await _capturePhoto(isStart: false);
-  }
-
-  Future<void> _capturePhoto({required bool isStart}) async {
-    if (isStart) {
-      _isStartPhotoUploading = true;
-    } else {
-      _isEndPhotoUploading = true;
-    }
+  /// 실제 기기 카메라를 열어 쓰레기 사진을 촬영하고, 촬영 즉시 로그 목록에 추가한다.
+  /// 추가된 항목은 잠시 '분류 중' 상태였다가 AI(현재는 시뮬레이션) 분류 결과로 채워진다.
+  /// 사용자가 촬영을 취소하면 아무 항목도 추가되지 않는다.
+  Future<void> captureTrashItem() async {
+    if (_isCapturingTrashPhoto) return;
+    _isCapturingTrashPhoto = true;
     notifyListeners();
 
     try {
@@ -579,29 +557,42 @@ class AppState extends ChangeNotifier {
       );
 
       if (picked != null) {
-        final file = File(picked.path);
-        if (isStart) {
-          _startPhoto = file;
-        } else {
-          _endPhoto = file;
-        }
+        final item = TrashItem(
+          id: 'trash_${DateTime.now().millisecondsSinceEpoch}',
+          photo: File(picked.path),
+        );
+        _trashItems.add(item);
+        notifyListeners();
+        _classifyTrashItem(item);
       }
     } catch (e) {
       debugPrint('카메라 촬영 실패: $e');
     } finally {
-      if (isStart) {
-        _isStartPhotoUploading = false;
-        _startPhotoUploadProgress = _startPhoto != null ? 1.0 : 0.0;
-      } else {
-        _isEndPhotoUploading = false;
-        _endPhotoUploadProgress = _endPhoto != null ? 1.0 : 0.0;
-      }
+      _isCapturingTrashPhoto = false;
       notifyListeners();
     }
   }
 
+  /// 촬영된 쓰레기 사진의 종류를 분류한다.
+  /// TODO: 실제 이미지 분류 API(예: Cloud Vision) 연동 지점.
+  /// 지금은 1.2초 지연 후 랜덤 카테고리를 부여하는 시뮬레이션으로 동작한다.
+  void _classifyTrashItem(TrashItem item) {
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (!_trashItems.contains(item)) return; // 그 사이 삭제됐으면 무시
+      final categories = TrashCategory.values;
+      item.category = categories[Random().nextInt(categories.length)];
+      notifyListeners();
+    });
+  }
+
+  /// 잘못 찍은 사진을 목록에서 제거한다.
+  void removeTrashItem(String itemId) {
+    _trashItems.removeWhere((item) => item.id == itemId);
+    notifyListeners();
+  }
+
   void submitVerification() {
-    if (_startPhoto == null || _endPhoto == null) return;
+    if (_trashItems.isEmpty) return;
     _verificationState = 'processing';
     _missionTimer?.cancel();
     _missionTimer = null;
@@ -646,6 +637,14 @@ class AppState extends ChangeNotifier {
       isUsed: false,
     ));
 
+    // 촬영된 쓰레기 항목들을 카테고리별로 집계
+    final Map<TrashCategory, int> trashSummary = {};
+    for (final item in _trashItems) {
+      final category = item.category;
+      if (category == null) continue; // 분류가 아직 안 끝난 항목은 집계 제외
+      trashSummary[category] = (trashSummary[category] ?? 0) + 1;
+    }
+
     // Create a new log
     _logs.insert(0, PloggingLog(
       id: 'log_${DateTime.now().millisecondsSinceEpoch}',
@@ -653,13 +652,13 @@ class AppState extends ChangeNotifier {
       date: '2026.07.17',
       collectedWeightKg: weightAdded,
       pointsEarned: _selectedCourse!.rewardPoints,
+      trashSummary: trashSummary,
     ));
 
     // Clear active mission state
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhoto = null;
-    _endPhoto = null;
+    _trashItems.clear();
     _verificationState = 'idle';
 
     // Navigate to Clean Log tab (index 2) to let user see their coupon
@@ -682,8 +681,7 @@ class AppState extends ChangeNotifier {
     _missionTimer = null;
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhoto = null;
-    _endPhoto = null;
+    _trashItems.clear();
     _verificationState = 'idle';
     notifyListeners();
   }
