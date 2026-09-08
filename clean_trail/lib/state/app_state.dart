@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -80,20 +82,22 @@ class AppState extends ChangeNotifier {
 
   Timer? _missionTimer;
 
-  // Photo verification details
-  String? _startPhotoPath;
-  String? get startPhotoPath => _startPhotoPath;
+  // Photo verification details — 실제 카메라로 촬영된 사진 파일 (New)
+  File? _startPhoto;
+  File? get startPhoto => _startPhoto;
   bool _isStartPhotoUploading = false;
   bool get isStartPhotoUploading => _isStartPhotoUploading;
   double _startPhotoUploadProgress = 0.0;
   double get startPhotoUploadProgress => _startPhotoUploadProgress;
 
-  String? _endPhotoPath;
-  String? get endPhotoPath => _endPhotoPath;
+  File? _endPhoto;
+  File? get endPhoto => _endPhoto;
   bool _isEndPhotoUploading = false;
   bool get isEndPhotoUploading => _isEndPhotoUploading;
   double _endPhotoUploadProgress = 0.0;
   double get endPhotoUploadProgress => _endPhotoUploadProgress;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   // AI Verdict details
   String _verificationState = 'idle'; // 'idle', 'processing', 'success', 'pending'
@@ -531,8 +535,8 @@ class AppState extends ChangeNotifier {
     _isMissionActive = true;
     _missionStartTime = DateTime.now();
     _elapsedSeconds = 0;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
+    _startPhoto = null;
+    _endPhoto = null;
     _isStartPhotoUploading = false;
     _startPhotoUploadProgress = 0.0;
     _isEndPhotoUploading = false;
@@ -548,52 +552,56 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void mockCaptureStartPhoto() {
-    _isStartPhotoUploading = true;
-    _startPhotoUploadProgress = 0.0;
-    notifyListeners();
-
-    // Mock progress ticker
-    double progress = 0.0;
-    Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      progress += 0.2;
-      if (progress >= 1.0) {
-        _startPhotoUploadProgress = 1.0;
-        _isStartPhotoUploading = false;
-        _startPhotoPath = 'mock_start_photo_path.jpg';
-        timer.cancel();
-        notifyListeners();
-      } else {
-        _startPhotoUploadProgress = progress;
-        notifyListeners();
-      }
-    });
+  /// 실제 기기 카메라를 열어 시작 지점 사진을 촬영한다.
+  /// 사용자가 촬영을 취소하면 아무 상태도 바뀌지 않는다.
+  Future<void> captureStartPhoto() async {
+    await _capturePhoto(isStart: true);
   }
 
-  void mockCaptureEndPhoto() {
-    _isEndPhotoUploading = true;
-    _endPhotoUploadProgress = 0.0;
+  /// 실제 기기 카메라를 열어 수거 완료 봉투 사진을 촬영한다.
+  Future<void> captureEndPhoto() async {
+    await _capturePhoto(isStart: false);
+  }
+
+  Future<void> _capturePhoto({required bool isStart}) async {
+    if (isStart) {
+      _isStartPhotoUploading = true;
+    } else {
+      _isEndPhotoUploading = true;
+    }
     notifyListeners();
 
-    // Mock progress ticker
-    double progress = 0.0;
-    Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      progress += 0.2;
-      if (progress >= 1.0) {
-        _endPhotoUploadProgress = 1.0;
-        _isEndPhotoUploading = false;
-        _endPhotoPath = 'mock_end_photo_path.jpg';
-        timer.cancel();
-        notifyListeners();
-      } else {
-        _endPhotoUploadProgress = progress;
-        notifyListeners();
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+
+      if (picked != null) {
+        final file = File(picked.path);
+        if (isStart) {
+          _startPhoto = file;
+        } else {
+          _endPhoto = file;
+        }
       }
-    });
+    } catch (e) {
+      debugPrint('카메라 촬영 실패: $e');
+    } finally {
+      if (isStart) {
+        _isStartPhotoUploading = false;
+        _startPhotoUploadProgress = _startPhoto != null ? 1.0 : 0.0;
+      } else {
+        _isEndPhotoUploading = false;
+        _endPhotoUploadProgress = _endPhoto != null ? 1.0 : 0.0;
+      }
+      notifyListeners();
+    }
   }
 
   void submitVerification() {
-    if (_startPhotoPath == null || _endPhotoPath == null) return;
+    if (_startPhoto == null || _endPhoto == null) return;
     _verificationState = 'processing';
     _missionTimer?.cancel();
     _missionTimer = null;
@@ -650,8 +658,8 @@ class AppState extends ChangeNotifier {
     // Clear active mission state
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
+    _startPhoto = null;
+    _endPhoto = null;
     _verificationState = 'idle';
 
     // Navigate to Clean Log tab (index 2) to let user see their coupon
@@ -674,8 +682,8 @@ class AppState extends ChangeNotifier {
     _missionTimer = null;
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
+    _startPhoto = null;
+    _endPhoto = null;
     _verificationState = 'idle';
     notifyListeners();
   }

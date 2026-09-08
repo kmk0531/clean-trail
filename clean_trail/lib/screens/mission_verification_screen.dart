@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../widgets/ios_button.dart';
@@ -33,7 +34,7 @@ class MissionVerificationScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: Text('진행 중인 미션이 없습니다.')));
     }
 
-    final bool isSubmitEnabled = appState.startPhotoPath != null && appState.endPhotoPath != null;
+    final bool isSubmitEnabled = appState.startPhoto != null && appState.endPhoto != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FBF8),
@@ -86,7 +87,7 @@ class MissionVerificationScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2F7D4F).withOpacity(0.15),
+                              color: const Color(0xFF2F7D4F).withValues(alpha: 0.15),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             )
@@ -119,7 +120,7 @@ class MissionVerificationScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.15),
+                                color: Colors.black.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Row(
@@ -173,10 +174,10 @@ class MissionVerificationScreen extends StatelessWidget {
                       _buildPhotoSlot(
                         context,
                         title: '① 시작 지점 사진',
-                        photoPath: appState.startPhotoPath,
+                        photo: appState.startPhoto,
                         isUploading: appState.isStartPhotoUploading,
                         progress: appState.startPhotoUploadProgress,
-                        onCapture: () => appState.mockCaptureStartPhoto(),
+                        onCapture: () => appState.captureStartPhoto(),
                       ),
 
                       const SizedBox(height: 20),
@@ -184,10 +185,10 @@ class MissionVerificationScreen extends StatelessWidget {
                       _buildPhotoSlot(
                         context,
                         title: '② 수거 완료 봉투 사진',
-                        photoPath: appState.endPhotoPath,
+                        photo: appState.endPhoto,
                         isUploading: appState.isEndPhotoUploading,
                         progress: appState.endPhotoUploadProgress,
-                        onCapture: () => appState.mockCaptureEndPhoto(),
+                        onCapture: () => appState.captureEndPhoto(),
                       ),
 
                       const SizedBox(height: 24),
@@ -225,7 +226,7 @@ class MissionVerificationScreen extends StatelessWidget {
   Widget _buildPhotoSlot(
     BuildContext context, {
     required String title,
-    required String? photoPath,
+    required File? photo,
     required bool isUploading,
     required double progress,
     required VoidCallback onCapture,
@@ -252,7 +253,7 @@ class MissionVerificationScreen extends StatelessWidget {
                   color: Color(0xFF233529),
                 ),
               ),
-              if (photoPath != null)
+              if (photo != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -281,7 +282,7 @@ class MissionVerificationScreen extends StatelessWidget {
 
           // Upload card area
           GestureDetector(
-            onTap: (photoPath == null && !isUploading) ? onCapture : null,
+            onTap: (photo == null && !isUploading) ? onCapture : null,
             child: Container(
               height: 140,
               width: double.infinity,
@@ -290,13 +291,13 @@ class MissionVerificationScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: const Color(0xFFD8E3DB),
-                  style: photoPath == null ? BorderStyle.none : BorderStyle.solid,
+                  style: photo == null ? BorderStyle.none : BorderStyle.solid,
                 ),
               ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  if (photoPath == null && !isUploading)
+                  if (photo == null && !isUploading)
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -340,18 +341,15 @@ class MissionVerificationScreen extends StatelessWidget {
                       ],
                     ),
 
-                  if (photoPath != null && !isUploading)
-                    // Simulated photo display with nice graphic
+                  if (photo != null && !isUploading)
+                    // 실제로 촬영된 사진을 그대로 표시
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Container(
-                              color: const Color(0xFFEAF3ED),
-                              child: Icon(Icons.image, size: 48, color: const Color(0xFF2F7D4F).withOpacity(0.5)),
-                            ),
+                            Image.file(photo, fit: BoxFit.cover),
                             // Overlay stamp info
                             Positioned(
                               bottom: 8,
@@ -360,7 +358,7 @@ class MissionVerificationScreen extends StatelessWidget {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Colors.black.withValues(alpha: 0.6),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -376,7 +374,7 @@ class MissionVerificationScreen extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      '35.1584, 129.1598',
+                                      '${appState.userLatitude.toStringAsFixed(4)}, ${appState.userLongitude.toStringAsFixed(4)}',
                                       style: TextStyle(
                                         fontFamily: 'ui-monospace',
                                         fontSize: 9,
