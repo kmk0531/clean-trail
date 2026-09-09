@@ -1,0 +1,58 @@
+name: Flutter CI
+
+# main/Kimmunki/YoungJun 브랜치로의 push와, 모든 브랜치로의 PR에서 실행된다.
+# 정적 분석(flutter analyze)과 디버그 APK 빌드가 통과하는지만 확인하는
+# 검증 전용 워크플로우다 — 자동 배포는 하지 않는다.
+on:
+  push:
+    branches: [main, Kimmunki, YoungJun]
+  pull_request:
+    branches: [main, Kimmunki, YoungJun]
+
+jobs:
+  analyze-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clean_trail
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+
+      # TourAPI 키(env.json)와 Firebase 설정(google-services.json)은
+      # 저장소에 커밋되지 않으므로, CI에서는 GitHub Secrets로 복원한다.
+      # TOUR_API_KEY가 없으면 관광정보 기능만 빠진 채로 빌드는 계속 진행되지만,
+      # google-services.json은 com.google.gms.google-services 플러그인이
+      # 없으면 빌드 자체를 실패시키므로 secret이 비어 있으면 여기서 바로
+      # 명확한 메시지로 실패시킨다 (Settings → Secrets and variables →
+      # Actions 에서 GOOGLE_SERVICES_JSON을 등록해야 함).
+      - name: Restore env.json (TourAPI key)
+        run: |
+          echo '{"TOUR_API_KEY": "${{ secrets.TOUR_API_KEY }}"}' > env.json
+
+      - name: Restore google-services.json (Firebase)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret이 등록되어 있지 않습니다. 이 값이 없으면 Firebase 플러그인 때문에 빌드가 실패합니다. 저장소 Settings → Secrets and variables → Actions에서 등록해주세요."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Build debug APK
+        run: flutter build apk --debug --dart-define-from-file=env.json
