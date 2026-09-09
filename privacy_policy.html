@@ -1,0 +1,709 @@
+<title>클린트레일 개인정보처리방침</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap');
+
+  :root{
+    --bg: #F9FBF8;
+    --surface: #FFFFFF;
+    --surface-soft: #F3F7F4;
+    --line: #E3ECE6;
+    --brand: #2F7D4F;
+    --brand-soft: #3F9D68;
+    --brand-tint: #E6F4EA;
+    --brand-tint-2: #EEF7F1;
+    --ink: #16261C;
+    --ink-2: #3A4A41;
+    --muted: #6B7B72;
+    --muted-2: #92A199;
+    --accent-warn: #B4622F;
+    --accent-warn-tint: #FBF0EA;
+    --focus: #2F7D4F;
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #0F1712;
+      --surface: #16211A;
+      --surface-soft: #1B281F;
+      --line: #24352A;
+      --brand: #4EAE79;
+      --brand-soft: #3F9D68;
+      --brand-tint: #1C2E22;
+      --brand-tint-2: #1A2A20;
+      --ink: #EAF3ED;
+      --ink-2: #C6D6CC;
+      --muted: #93A79B;
+      --muted-2: #6E8377;
+      --accent-warn: #E0A379;
+      --accent-warn-tint: #2B211A;
+      --focus: #4EAE79;
+    }
+  }
+
+  :root[data-theme="dark"]{
+    --bg: #0F1712;
+    --surface: #16211A;
+    --surface-soft: #1B281F;
+    --line: #24352A;
+    --brand: #4EAE79;
+    --brand-soft: #3F9D68;
+    --brand-tint: #1C2E22;
+    --brand-tint-2: #1A2A20;
+    --ink: #EAF3ED;
+    --ink-2: #C6D6CC;
+    --muted: #93A79B;
+    --muted-2: #6E8377;
+    --accent-warn: #E0A379;
+    --accent-warn-tint: #2B211A;
+    --focus: #4EAE79;
+  }
+
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection{ background: var(--brand-tint); color: var(--brand); }
+  a{ color: var(--brand); }
+  a:focus-visible, button:focus-visible, .toc a:focus-visible{
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---------- App-style top bar (mirrors CleanTrail app header) ---------- */
+  .topbar{
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-badge{
+    width: 30px; height: 30px;
+    border-radius: 999px;
+    background: var(--brand-tint);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand-badge svg{ width: 16px; height: 16px; }
+  .brand-name{
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.3px;
+    color: var(--brand);
+  }
+  .doc-tag{
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand);
+    background: var(--brand-tint);
+    border: 1px solid var(--line);
+    padding: 5px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 28px;
+  }
+  .eyebrow{
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--brand-soft);
+    margin: 0 0 10px;
+  }
+  h1{
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.2;
+    letter-spacing: -0.6px;
+    font-weight: 800;
+    margin: 0 0 12px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  .hero-desc{
+    max-width: 62ch;
+    font-size: 15.5px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    margin: 0 0 22px;
+  }
+  .meta-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .meta-pill{
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+  .meta-pill .k{ color: var(--muted); }
+  .meta-pill .v{
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Layout: sticky TOC + content ---------- */
+  .layout{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 8px 24px 80px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+  @media (max-width: 800px){
+    .layout{ grid-template-columns: 1fr; }
+    .toc{ display: none; }
+  }
+
+  .toc{
+    position: sticky;
+    top: 74px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 8px;
+  }
+  .toc-label{
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted-2);
+    margin: 0 0 8px 10px;
+  }
+  .toc a{
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border-left: 2px solid transparent;
+    transition: background .15s ease, color .15s ease;
+  }
+  .toc a:hover{ background: var(--surface-soft); color: var(--ink); }
+  .toc a.active{
+    color: var(--brand);
+    background: var(--brand-tint);
+    font-weight: 700;
+    border-left-color: var(--brand);
+  }
+  .toc .num{
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-2);
+    margin-right: 6px;
+  }
+  .toc a.active .num{ color: var(--brand-soft); }
+
+  /* ---------- Content sections (card pattern, matches app cards) ---------- */
+  .sections{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  section.card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 26px 28px;
+    scroll-margin-top: 84px;
+  }
+  section.card h2{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    margin: 0 0 14px;
+    color: var(--ink);
+  }
+  section.card h2 .idx{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    background: var(--brand-tint);
+    color: var(--brand);
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  section.card p{
+    font-size: 14.5px;
+    line-height: 1.75;
+    color: var(--ink-2);
+    margin: 0 0 12px;
+    max-width: 68ch;
+  }
+  section.card p:last-child{ margin-bottom: 0; }
+  section.card strong{ color: var(--ink); font-weight: 700; }
+
+  /* data table: purpose / items / retention */
+  .data-table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 4px 0 16px;
+  }
+  .data-table th{
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .data-table td{
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .data-table tr:last-child td{ border-bottom: none; }
+  .data-table td.label{
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .tag{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--brand-tint-2);
+    color: var(--brand);
+    white-space: nowrap;
+  }
+  .tag.optional{ background: var(--surface-soft); color: var(--muted); }
+  .table-wrap{ overflow-x: auto; }
+
+  /* permission chips row */
+  .perm-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin: 4px 0 16px;
+  }
+  .perm{
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px;
+    background: var(--surface-soft);
+    border-radius: 14px;
+  }
+  .perm svg{ width: 18px; height: 18px; color: var(--brand); flex-shrink: 0; margin-top: 1px; }
+  .perm-name{ font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .perm-desc{ font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+  /* third-party list */
+  .party-list{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 4px 0 16px;
+  }
+  .party{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .party-dot{
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--brand-soft);
+    flex-shrink: 0;
+  }
+  .party-name{ font-weight: 700; font-size: 13.5px; color: var(--ink); min-width: 108px; }
+  .party-desc{ font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* rights buttons row (visual only, mirrors app pill buttons) */
+  .rights-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 4px 0 4px;
+  }
+  .right-pill{
+    padding: 12px 14px;
+    background: var(--brand-tint);
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand);
+    text-align: center;
+  }
+
+  .notice{
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: var(--accent-warn-tint);
+    margin: 4px 0 16px;
+  }
+  .notice svg{ width: 18px; height: 18px; color: var(--accent-warn); flex-shrink: 0; margin-top: 2px; }
+  .notice p{ margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+
+  /* contact card */
+  .contact-card{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 18px;
+    background: var(--brand-tint-2);
+    border-radius: 16px;
+    margin-top: 4px;
+  }
+  .contact-item .k{
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: var(--brand-soft);
+    margin-bottom: 4px;
+  }
+  .contact-item .v{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  footer{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 8px 24px 60px;
+    color: var(--muted-2);
+    font-size: 12.5px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (prefers-reduced-motion: no-preference){
+    section.card{ animation: rise .5s ease both; }
+    section.card:nth-child(1){ animation-delay: .02s; }
+    section.card:nth-child(2){ animation-delay: .05s; }
+    section.card:nth-child(3){ animation-delay: .08s; }
+  }
+  @keyframes rise{
+    from{ opacity: 0; transform: translateY(6px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-badge">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C7 2 4 6 4 10.5C4 16 8 20 12 22C16 20 20 16 20 10.5C20 6 17 2 12 2Z" stroke="currentColor" stroke-width="1.8" style="color:var(--brand)"/>
+        <path d="M12 8V16M12 8C10.5 8 9 9 9 11M12 8C13.5 8 15 9 15 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color:var(--brand)"/>
+      </svg>
+    </div>
+    <span class="brand-name">CleanTrail</span>
+    <span class="doc-tag">개인정보처리방침</span>
+  </div>
+</div>
+
+<div class="hero">
+  <p class="eyebrow">Privacy Policy · 클린트레일</p>
+  <h1>클린트레일은 이용자의 정보를<br>이렇게 다룹니다</h1>
+  <p class="hero-desc">
+    클린트레일(CleanTrail)은 플로깅 미션 수행, 사진 인증, 리워드 지급을 위해 최소한의 개인정보만 수집하며,
+    「개인정보 보호법」 및 관계 법령에 따라 이용자의 정보를 안전하게 처리합니다. 아래 내용을 통해
+    수집 항목, 이용 목적, 보관 기간을 투명하게 안내드립니다.
+  </p>
+  <div class="meta-row">
+    <div class="meta-pill"><span class="k">시행일</span><span class="v">2026.09.01</span></div>
+    <div class="meta-pill"><span class="k">버전</span><span class="v">v1.0</span></div>
+    <div class="meta-pill"><span class="k">문서 조항</span><span class="v">8개 항목</span></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <p class="toc-label">목차</p>
+    <a href="#s1" class="nav-link"><span class="num">01</span>수집하는 개인정보 항목</a>
+    <a href="#s2" class="nav-link"><span class="num">02</span>개인정보의 수집 및 이용 목적</a>
+    <a href="#s3" class="nav-link"><span class="num">03</span>기기 접근 권한 안내</a>
+    <a href="#s4" class="nav-link"><span class="num">04</span>제3자 제공 및 위탁</a>
+    <a href="#s5" class="nav-link"><span class="num">05</span>보유 및 이용 기간</a>
+    <a href="#s6" class="nav-link"><span class="num">06</span>이용자의 권리</a>
+    <a href="#s7" class="nav-link"><span class="num">07</span>안전성 확보 조치</a>
+    <a href="#s8" class="nav-link"><span class="num">08</span>문의 및 담당자</a>
+  </nav>
+
+  <div class="sections">
+
+    <section class="card" id="s1">
+      <h2><span class="idx">01</span>수집하는 개인정보 항목</h2>
+      <p>클린트레일은 회원가입, 로그인, 플로깅 미션 진행 및 리워드 지급 과정에서 아래와 같은 정보를 수집합니다.</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>수집 시점</th><th>수집 항목</th><th>구분</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label">이메일 회원가입</td>
+              <td>이메일 주소, 비밀번호(암호화 저장), 이름</td>
+              <td><span class="tag">필수</span></td>
+            </tr>
+            <tr>
+              <td class="label">소셜 로그인 (Google)</td>
+              <td>Google 계정 이메일, 프로필 이름, 인증 토큰</td>
+              <td><span class="tag">필수</span></td>
+            </tr>
+            <tr>
+              <td class="label">플로깅 미션 진행</td>
+              <td>실시간 GPS 위치 정보, 이동 경로, 활동 시간</td>
+              <td><span class="tag">필수</span></td>
+            </tr>
+            <tr>
+              <td class="label">AI 사진 인증</td>
+              <td>미션 전·후 촬영 사진(쓰레기 수거 인증용)</td>
+              <td><span class="tag">필수</span></td>
+            </tr>
+            <tr>
+              <td class="label">쿠폰 사용 및 랭킹</td>
+              <td>누적 포인트, 수거량, 쿠폰 사용 이력</td>
+              <td><span class="tag">필수</span></td>
+            </tr>
+            <tr>
+              <td class="label">서비스 이용 전반</td>
+              <td>기기 모델명, OS 버전, 앱 버전, 접속 로그</td>
+              <td><span class="tag optional">선택</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>만 14세 미만 아동의 개인정보는 수집하지 않으며, 회원가입 시 이를 확인합니다.</p>
+    </section>
+
+    <section class="card" id="s2">
+      <h2><span class="idx">02</span>개인정보의 수집 및 이용 목적</h2>
+      <p>수집된 개인정보는 다음 목적으로만 이용되며, 명시한 목적 외 용도로 사용되지 않습니다.</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>목적</th><th>세부 내용</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label">회원 관리</td>
+              <td>이메일·소셜 로그인 인증, 회원 식별 및 중복 가입 방지</td>
+            </tr>
+            <tr>
+              <td class="label">플로깅 코스 추천</td>
+              <td>현재 위치 기반 인근 관광지 플로깅 코스 매칭 및 지도 표시</td>
+            </tr>
+            <tr>
+              <td class="label">미션 검증</td>
+              <td>GPS 이동 경로 기록, 사진 인증을 통한 쓰레기 수거 여부 판별</td>
+            </tr>
+            <tr>
+              <td class="label">리워드 지급</td>
+              <td>탄소중립 포인트 적립, 지역 가맹점 모바일 쿠폰 발급 및 사용 처리</td>
+            </tr>
+            <tr>
+              <td class="label">서비스 개선</td>
+              <td>랭킹·통계 제공, 부정 수급 방지, 오류 분석 및 앱 품질 개선</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="s3">
+      <h2><span class="idx">03</span>기기 접근 권한 안내</h2>
+      <p>클린트레일은 아래 권한에 대해 이용자의 동의를 받아 접근하며, 동의하지 않아도 앱의 기본 이용은 가능하나 관련 기능이 제한될 수 있습니다.</p>
+      <div class="perm-grid">
+        <div class="perm">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21C12 21 5 14.5 5 9.5C5 5.9 8.1 3 12 3C15.9 3 19 5.9 19 9.5C19 14.5 12 21 12 21Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="9.5" r="2.3" stroke="currentColor" stroke-width="1.7"/></svg>
+          <div>
+            <div class="perm-name">위치 정보 (필수)</div>
+            <div class="perm-desc">플로깅 코스 추천, 실시간 이동 경로 기록을 위해 사용 중 위치 접근이 필요합니다.</div>
+          </div>
+        </div>
+        <div class="perm">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="7" width="18" height="13" rx="2.3" stroke="currentColor" stroke-width="1.7"/><path d="M8 7L9.6 4.5H14.4L16 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="13.5" r="3.3" stroke="currentColor" stroke-width="1.7"/></svg>
+          <div>
+            <div class="perm-name">카메라 (필수)</div>
+            <div class="perm-desc">미션 시작·종료 시 쓰레기 수거 인증 사진 촬영을 위해 필요합니다.</div>
+          </div>
+        </div>
+        <div class="perm">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <div>
+            <div class="perm-name">저장소 / 갤러리 (선택)</div>
+            <div class="perm-desc">인증 사진을 갤러리에서 불러오거나 임시 저장할 때 접근합니다.</div>
+          </div>
+        </div>
+      </div>
+      <p>위치 권한은 iOS에서 <strong>"앱 사용 중"</strong> 및 <strong>"항상 허용"</strong> 두 단계로 안내되며, 미션 트래킹 중에만 실시간 위치를 수집합니다.</p>
+    </section>
+
+    <section class="card" id="s4">
+      <h2><span class="idx">04</span>제3자 제공 및 위탁</h2>
+      <p>클린트레일은 원칙적으로 이용자의 개인정보를 외부에 제공하지 않으며, 서비스 운영을 위해 아래 업체에 한해 처리를 위탁합니다.</p>
+      <div class="party-list">
+        <div class="party">
+          <span class="party-dot"></span>
+          <span class="party-name">Google Firebase</span>
+          <span class="party-desc">회원 인증(이메일·Google 로그인) 및 계정 식별 처리</span>
+        </div>
+        <div class="party">
+          <span class="party-dot"></span>
+          <span class="party-name">NAVER Cloud</span>
+          <span class="party-desc">지도 렌더링 및 위치 기반 코스 시각화(Naver Maps API)</span>
+        </div>
+        <div class="party">
+          <span class="party-dot"></span>
+          <span class="party-name">제휴 가맹점</span>
+          <span class="party-desc">모바일 쿠폰 사용 처리를 위한 쿠폰 식별 정보(익명화된 쿠폰 코드)</span>
+        </div>
+      </div>
+      <div class="notice">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9V13M12 17H12.01M10.3 3.9L2.7 17.5C2.3 18.2 2.8 19 3.6 19H20.4C21.2 19 21.7 18.2 21.3 17.5L13.7 3.9C13.3 3.2 12.7 3.2 12.3 3.9Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <p>법령에 특별한 규정이 있거나 수사기관이 적법한 절차에 따라 요청하는 경우를 제외하고, 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다.</p>
+      </div>
+    </section>
+
+    <section class="card" id="s5">
+      <h2><span class="idx">05</span>보유 및 이용 기간</h2>
+      <p>이용자의 개인정보는 원칙적으로 회원 탈퇴 시 지체 없이 파기합니다. 다만 관계 법령에 따라 보존이 필요한 경우 아래 기간 동안 보관 후 파기합니다.</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>보관 항목</th><th>보관 기간</th><th>근거</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label">계약 및 청약철회 기록</td>
+              <td>5년</td>
+              <td>전자상거래법</td>
+            </tr>
+            <tr>
+              <td class="label">대금결제 및 재화 공급 기록</td>
+              <td>5년</td>
+              <td>전자상거래법</td>
+            </tr>
+            <tr>
+              <td class="label">소비자 불만·분쟁처리 기록</td>
+              <td>3년</td>
+              <td>전자상거래법</td>
+            </tr>
+            <tr>
+              <td class="label">서비스 접속 로그</td>
+              <td>3개월</td>
+              <td>통신비밀보호법</td>
+            </tr>
+            <tr>
+              <td class="label">실시간 GPS 위치 정보</td>
+              <td>미션 종료 후 30일</td>
+              <td>내부 방침</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="s6">
+      <h2><span class="idx">06</span>이용자의 권리</h2>
+      <p>이용자는 언제든지 자신의 개인정보에 대해 아래 권리를 행사할 수 있으며, 앱 내 프로필 화면 또는 아래 문의처를 통해 요청할 수 있습니다.</p>
+      <div class="rights-grid">
+        <div class="right-pill">열람 요구</div>
+        <div class="right-pill">정정·삭제 요구</div>
+        <div class="right-pill">처리정지 요구</div>
+        <div class="right-pill">회원 탈퇴</div>
+      </div>
+    </section>
+
+    <section class="card" id="s7">
+      <h2><span class="idx">07</span>안전성 확보 조치</h2>
+      <p>클린트레일은 개인정보 보호를 위해 다음과 같은 기술적·관리적 조치를 시행하고 있습니다.</p>
+      <p>
+        <strong>비밀번호 암호화 저장</strong> — 이메일 회원의 비밀번호는 단방향 암호화(해시)하여 저장하며 평문으로 보관하지 않습니다.<br>
+        <strong>접근 권한 최소화</strong> — 개인정보 처리 업무 담당자를 최소한으로 지정하여 운영합니다.<br>
+        <strong>전송 구간 암호화</strong> — 로그인 및 위치 정보 전송 구간에 암호화 통신(TLS)을 적용합니다.
+      </p>
+    </section>
+
+    <section class="card" id="s8">
+      <h2><span class="idx">08</span>문의 및 담당자</h2>
+      <p>개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등을 위해 아래 담당자에게 연락하실 수 있습니다.</p>
+      <div class="contact-card">
+        <div class="contact-item"><div class="k">개인정보보호책임자</div><div class="v">김문기</div></div>
+        <div class="contact-item"><div class="k">이메일</div><div class="v">kmk7072301@gmail.com</div></div>
+        <div class="contact-item"><div class="k">서비스명</div><div class="v">클린트레일 (CleanTrail)</div></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<footer>
+  <span>© 2026 CleanTrail. All rights reserved.</span>
+  <span>본 방침은 2026년 9월 1일부터 시행됩니다.</span>
+</footer>
+
+<script>
+  (function(){
+    var links = document.querySelectorAll('.nav-link');
+    var sections = Array.prototype.map.call(links, function(a){
+      return document.querySelector(a.getAttribute('href'));
+    });
+    function onScroll(){
+      var pos = window.scrollY + 100;
+      var activeIdx = 0;
+      sections.forEach(function(sec, i){
+        if(sec && sec.offsetTop <= pos) activeIdx = i;
+      });
+      links.forEach(function(a, i){
+        a.classList.toggle('active', i === activeIdx);
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>

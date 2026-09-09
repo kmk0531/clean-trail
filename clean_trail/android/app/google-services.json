@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "931258972668",
+    "project_id": "cleantrail-4c376",
+    "storage_bucket": "cleantrail-4c376.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:931258972668:android:f3957740f68c797ec0da79",
+        "android_client_info": {
+          "package_name": "com.cleantrail.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "931258972668-09e7nkr0g945jp3cumk4jed9cl7rbg07.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cleantrail.app",
+            "certificate_hash": "67c32d78254ff8629fc3b731c5939b77a75cc239"
+          }
+        },
+        {
+          "client_id": "931258972668-8vrj9g315ug956egc3oqh1qgl46tfsaf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cleantrail.app",
+            "certificate_hash": "cab5a906d6b4d558dc7ab7c37b458fc7cfa1cd64"
+          }
+        },
+        {
+          "client_id": "931258972668-7v9k4dfon3pegpcj98opvksnm1mvcpgj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ1M9HCpYt4AbGd-IwRK3bU9HJCqQ4XvE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "931258972668-7v9k4dfon3pegpcj98opvksnm1mvcpgj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

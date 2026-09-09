@@ -57,24 +57,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // 소셜 로그인 처리 연출 (1초 딜레이 후 Mock 데이터 로그인)
-    await Future.delayed(const Duration(milliseconds: 1000));
+    if (type == 'google') {
+      await widget.appState.signInWithGoogle();
+    } else if (type == 'naver') {
+      // 네이버 소셜 로그인 모의 처리 (1초 딜레이)
+      await Future.delayed(const Duration(milliseconds: 600));
+      await widget.appState.loginWithSocial(
+        'naver',
+        'clean_naver@naver.com',
+        '네이버 사용자',
+      );
+    }
 
     if (mounted) {
-      if (type == 'google') {
-        await widget.appState.loginWithSocial(
-          'google',
-          'clean_google@gmail.com',
-          '구글 사용자',
-        );
-      } else if (type == 'naver') {
-        await widget.appState.loginWithSocial(
-          'naver',
-          'clean_naver@naver.com',
-          '네이버 사용자',
-        );
-      }
-
       setState(() {
         _isLoading = false;
       });
@@ -337,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: Border.all(color: Colors.grey[300]!),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withValues(alpha: 0.03),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       )

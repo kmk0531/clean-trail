@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'state/app_state.dart';
@@ -16,6 +17,14 @@ import 'screens/store_scanner_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase SDK 초기화
+  try {
+    await Firebase.initializeApp();
+    debugPrint("Firebase 초기화 성공");
+  } catch (e) {
+    debugPrint("Firebase 초기화 대기/건너뜀 (기본 설정 필요): $e");
+  }
 
   // 네이버 지도 SDK 초기화 (최신 API 규격 적용)
   await FlutterNaverMap().init(
@@ -41,7 +50,7 @@ class CleanTrailApp extends StatelessWidget {
           seedColor: const Color(0xFF2F7D4F),
           primary: const Color(0xFF2F7D4F),
           secondary: const Color(0xFF3F9D68),
-          background: const Color(0xFFF9FBF8),
+          surface: const Color(0xFFF9FBF8),
         ),
         useMaterial3: true,
         fontFamily: '-apple-system',

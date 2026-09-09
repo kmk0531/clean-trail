@@ -70,6 +70,8 @@
 	<string>사용자의 플로깅 경로 기록 및 현재 위치 표시를 위해 위치 권한이 필요합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>사용자의 플로깅 경로 기록 및 현재 위치 표시를 위해 위치 권한이 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>플로깅 미션 인증을 위해 시작 지점과 쓰레기 수거 봉투 사진 촬영에 카메라 접근 권한이 필요합니다.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>nmap</string>

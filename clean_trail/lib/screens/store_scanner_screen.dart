@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../models/coupon.dart';
-import '../widgets/ios_button.dart';
 
 class StoreScannerScreen extends StatefulWidget {
   final AppState appState;
@@ -128,7 +127,7 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                             Positioned.fill(
                               child: Container(
                                 color: Colors.black38,
-                                child: Icon(Icons.qr_code_2, size: 140, color: Colors.white.withOpacity(0.1)),
+                                child: Icon(Icons.qr_code_2, size: 140, color: Colors.white.withValues(alpha: 0.1)),
                               ),
                             ),
 
@@ -152,7 +151,7 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                                       color: const Color(0xFF3F9D68),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF3F9D68).withOpacity(0.8),
+                                          color: const Color(0xFF3F9D68).withValues(alpha: 0.8),
                                           blurRadius: 8,
                                           spreadRadius: 2,
                                         )
@@ -248,7 +247,7 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                           itemBuilder: (context, idx) {
                             final coupon = unusedCoupons[idx];
                             return Card(
-                              color: Colors.white.withOpacity(0.08),
+                              color: Colors.white.withValues(alpha: 0.08),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: ListTile(
                                 leading: const Icon(Icons.confirmation_number, color: Colors.white70),
@@ -308,7 +307,7 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
         padding: const EdgeInsets.all(20),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white10),
         ),

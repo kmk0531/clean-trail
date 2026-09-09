@@ -1,9 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
 import '../models/coupon.dart';
 import '../models/clean_log.dart';
+import '../models/trash_item.dart';
+import '../services/tour_api_service.dart';
+import '../services/trash_classifier_service.dart';
+
+/// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
+String _generateSalt([int length = 16]) {
+  final random = Random.secure();
+  final bytes = List<int>.generate(length, (_) => random.nextInt(256));
+  return base64UrlEncode(bytes);
+}
+
+String _hashPassword(String password, String salt) {
+  final bytes = utf8.encode('$salt:$password');
+  return sha256.convert(bytes).toString();
+}
 
 class AppState extends ChangeNotifier {
   // Navigation & Onboarding State
@@ -43,6 +65,10 @@ class AppState extends ChangeNotifier {
   List<PloggingCourse> _courses = [];
   List<PloggingCourse> get courses => _courses;
 
+  // 한국관광공사 TourAPI 연동 상태 (New)
+  bool _isLoadingNearbySpots = false;
+  bool get isLoadingNearbySpots => _isLoadingNearbySpots;
+
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
 
@@ -58,20 +84,14 @@ class AppState extends ChangeNotifier {
 
   Timer? _missionTimer;
 
-  // Photo verification details
-  String? _startPhotoPath;
-  String? get startPhotoPath => _startPhotoPath;
-  bool _isStartPhotoUploading = false;
-  bool get isStartPhotoUploading => _isStartPhotoUploading;
-  double _startPhotoUploadProgress = 0.0;
-  double get startPhotoUploadProgress => _startPhotoUploadProgress;
+  // Trash item photo log — 미션 중 촬영한 쓰레기 사진 및 분류 결과 목록 (New)
+  final List<TrashItem> _trashItems = [];
+  List<TrashItem> get trashItems => List.unmodifiable(_trashItems);
 
-  String? _endPhotoPath;
-  String? get endPhotoPath => _endPhotoPath;
-  bool _isEndPhotoUploading = false;
-  bool get isEndPhotoUploading => _isEndPhotoUploading;
-  double _endPhotoUploadProgress = 0.0;
-  double get endPhotoUploadProgress => _endPhotoUploadProgress;
+  bool _isCapturingTrashPhoto = false;
+  bool get isCapturingTrashPhoto => _isCapturingTrashPhoto;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   // AI Verdict details
   String _verificationState = 'idle'; // 'idle', 'processing', 'success', 'pending'
@@ -97,6 +117,7 @@ class AppState extends ChangeNotifier {
   AppState() {
     _initializeMockData();
     _loadSession(); // 기기 내 저장된 유저 세션 정보 로딩
+    refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
   }
 
   // 기기 내 저장된 유저 세션 정보 로딩 (New)
@@ -127,8 +148,10 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // 사용자 추가 (email:password:name 포맷으로 가짜 DB 기록)
-    users.add('$email:$password:$name');
+    // 사용자 추가 (email:salt:passwordHash:name 포맷, 비밀번호는 평문 저장하지 않음)
+    final salt = _generateSalt();
+    final hash = _hashPassword(password, salt);
+    users.add('$email:$salt:$hash:$name');
     await prefs.setStringList('local_users', users);
 
     // 가입 성공 시 자동 로그인 연계
@@ -142,10 +165,17 @@ class AppState extends ChangeNotifier {
 
     for (var u in users) {
       final parts = u.split(':');
-      if (parts.length >= 3 && parts[0] == email && parts[1] == password) {
+      if (parts.length < 4 || parts[0] != email) continue;
+
+      final salt = parts[1];
+      final storedHash = parts[2];
+      final name = parts.sublist(3).join(':');
+      final inputHash = _hashPassword(password, salt);
+
+      if (storedHash == inputHash) {
         _isLoggedIn = true;
         _userEmail = email;
-        _userName = parts[2];
+        _userName = name;
         _loginType = 'email';
 
         await prefs.setBool('isLoggedIn', true);
@@ -157,11 +187,54 @@ class AppState extends ChangeNotifier {
         notifyListeners();
         return true;
       }
+      return false;
     }
     return false;
   }
 
-  // 소셜 로그인 모의 처리 (New)
+  // 구글 소셜 로그인 연동 (Firebase Auth)
+  Future<bool> signInWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // 사용자가 취소함
+        return false;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        await loginWithSocial(
+          'google',
+          user.email ?? 'google_user@cleantrail.com',
+          user.displayName ?? '구글 사용자',
+        );
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Firebase Google 로그인 에러 (Fallback 모드 작동): $e");
+      // Firebase 설정(google-services.json) 미적용 환경인 경우 데모용 가상 로그인 처리
+      await loginWithSocial(
+        'google',
+        'clean_google@gmail.com',
+        '구글 사용자 (Demo)',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // 소셜 로그인 모의 처리 및 세션 저장
   Future<void> loginWithSocial(String type, String email, String name) async {
     final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = true;
@@ -178,8 +251,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 로그아웃 (New)
+  // 로그아웃 (Firebase Auth 및 GoogleSignIn 해제 포함)
   Future<void> logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      await GoogleSignIn().signOut();
+    } catch (e) {
+      debugPrint("소셜 로그아웃 예외 무시: $e");
+    }
+
     final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = false;
     _userEmail = null;
@@ -204,6 +284,43 @@ class AppState extends ChangeNotifier {
     _userLocationName = name;
     _locationPermissionGranted = true; // 가상 위치 스위칭 시 위치 수집 활성화 처리
     notifyListeners();
+
+    // 위치가 바뀌면 한국관광공사 TourAPI로 주변 관광지 정보를 새로 불러온다.
+    refreshNearbySpots();
+  }
+
+  /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
+  /// 각 플로깅 코스의 추천 스팟(recommendedSpots)을 실제 관광 데이터로 갱신한다.
+  ///
+  /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 아무 것도 하지 않고
+  /// 기존 목업 추천 스팟을 그대로 유지한다 (앱 동작에 영향 없음).
+  Future<void> refreshNearbySpots() async {
+    if (!TourApiService.instance.isConfigured || _courses.isEmpty) return;
+
+    _isLoadingNearbySpots = true;
+    notifyListeners();
+
+    try {
+      final spots = await TourApiService.instance.fetchNearbySpots(
+        latitude: _userLatitude,
+        longitude: _userLongitude,
+        radiusMeters: 3000,
+      );
+
+      if (spots.isNotEmpty) {
+        // 코스별로 겹치지 않게 추천 스팟을 순서대로 나눠 배분한다.
+        final perCourse = (spots.length / _courses.length).ceil().clamp(1, 4);
+        _courses = List.generate(_courses.length, (i) {
+          final start = i * perCourse;
+          if (start >= spots.length) return _courses[i];
+          final end = (start + perCourse).clamp(0, spots.length);
+          return _courses[i].copyWith(recommendedSpots: spots.sublist(start, end));
+        });
+      }
+    } finally {
+      _isLoadingNearbySpots = false;
+      notifyListeners();
+    }
   }
 
   void _initializeMockData() {
@@ -412,12 +529,8 @@ class AppState extends ChangeNotifier {
     _isMissionActive = true;
     _missionStartTime = DateTime.now();
     _elapsedSeconds = 0;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
-    _isStartPhotoUploading = false;
-    _startPhotoUploadProgress = 0.0;
-    _isEndPhotoUploading = false;
-    _endPhotoUploadProgress = 0.0;
+    _trashItems.clear();
+    _isCapturingTrashPhoto = false;
     _verificationState = 'idle';
 
     _missionTimer?.cancel();
@@ -429,52 +542,57 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void mockCaptureStartPhoto() {
-    _isStartPhotoUploading = true;
-    _startPhotoUploadProgress = 0.0;
+  /// 실제 기기 카메라를 열어 쓰레기 사진을 촬영하고, 촬영 즉시 로그 목록에 추가한다.
+  /// 추가된 항목은 잠시 '분류 중' 상태였다가 AI(현재는 시뮬레이션) 분류 결과로 채워진다.
+  /// 사용자가 촬영을 취소하면 아무 항목도 추가되지 않는다.
+  Future<void> captureTrashItem() async {
+    if (_isCapturingTrashPhoto) return;
+    _isCapturingTrashPhoto = true;
     notifyListeners();
 
-    // Mock progress ticker
-    double progress = 0.0;
-    Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      progress += 0.2;
-      if (progress >= 1.0) {
-        _startPhotoUploadProgress = 1.0;
-        _isStartPhotoUploading = false;
-        _startPhotoPath = 'mock_start_photo_path.jpg';
-        timer.cancel();
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+
+      if (picked != null) {
+        final item = TrashItem(
+          id: 'trash_${DateTime.now().millisecondsSinceEpoch}',
+          photo: File(picked.path),
+        );
+        _trashItems.add(item);
         notifyListeners();
-      } else {
-        _startPhotoUploadProgress = progress;
-        notifyListeners();
+        _classifyTrashItem(item);
       }
-    });
+    } catch (e) {
+      debugPrint('카메라 촬영 실패: $e');
+    } finally {
+      _isCapturingTrashPhoto = false;
+      notifyListeners();
+    }
   }
 
-  void mockCaptureEndPhoto() {
-    _isEndPhotoUploading = true;
-    _endPhotoUploadProgress = 0.0;
-    notifyListeners();
+  /// 촬영된 쓰레기 사진의 종류를 온디바이스 TFLite 모델로 분류한다.
+  /// (TrashNet 기반 MobileNetV2, lib/services/trash_classifier_service.dart)
+  Future<void> _classifyTrashItem(TrashItem item) async {
+    final category = await TrashClassifierService.instance.classify(item.photo);
+    if (!_trashItems.contains(item)) return; // 그 사이 삭제됐으면 무시
 
-    // Mock progress ticker
-    double progress = 0.0;
-    Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      progress += 0.2;
-      if (progress >= 1.0) {
-        _endPhotoUploadProgress = 1.0;
-        _isEndPhotoUploading = false;
-        _endPhotoPath = 'mock_end_photo_path.jpg';
-        timer.cancel();
-        notifyListeners();
-      } else {
-        _endPhotoUploadProgress = progress;
-        notifyListeners();
-      }
-    });
+    // 모델 로딩/추론 실패 시에도 사용자 흐름이 막히지 않도록 일반쓰레기로 폴백
+    item.category = category ?? TrashCategory.general;
+    notifyListeners();
+  }
+
+  /// 잘못 찍은 사진을 목록에서 제거한다.
+  void removeTrashItem(String itemId) {
+    _trashItems.removeWhere((item) => item.id == itemId);
+    notifyListeners();
   }
 
   void submitVerification() {
-    if (_startPhotoPath == null || _endPhotoPath == null) return;
+    if (_trashItems.isEmpty) return;
     _verificationState = 'processing';
     _missionTimer?.cancel();
     _missionTimer = null;
@@ -519,6 +637,14 @@ class AppState extends ChangeNotifier {
       isUsed: false,
     ));
 
+    // 촬영된 쓰레기 항목들을 카테고리별로 집계
+    final Map<TrashCategory, int> trashSummary = {};
+    for (final item in _trashItems) {
+      final category = item.category;
+      if (category == null) continue; // 분류가 아직 안 끝난 항목은 집계 제외
+      trashSummary[category] = (trashSummary[category] ?? 0) + 1;
+    }
+
     // Create a new log
     _logs.insert(0, PloggingLog(
       id: 'log_${DateTime.now().millisecondsSinceEpoch}',
@@ -526,13 +652,13 @@ class AppState extends ChangeNotifier {
       date: '2026.07.17',
       collectedWeightKg: weightAdded,
       pointsEarned: _selectedCourse!.rewardPoints,
+      trashSummary: trashSummary,
     ));
 
     // Clear active mission state
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
+    _trashItems.clear();
     _verificationState = 'idle';
 
     // Navigate to Clean Log tab (index 2) to let user see their coupon
@@ -555,8 +681,7 @@ class AppState extends ChangeNotifier {
     _missionTimer = null;
     _isMissionActive = false;
     _selectedCourse = null;
-    _startPhotoPath = null;
-    _endPhotoPath = null;
+    _trashItems.clear();
     _verificationState = 'idle';
     notifyListeners();
   }

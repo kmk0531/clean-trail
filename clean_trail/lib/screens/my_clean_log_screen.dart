@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../models/coupon.dart';
+import '../models/trash_item.dart';
 
 class MyCleanLogScreen extends StatefulWidget {
   final AppState appState;
@@ -63,7 +64,7 @@ class _MyCleanLogScreenState extends State<MyCleanLogScreen> with SingleTickerPr
               border: Border.all(color: const Color(0xFFE2EBE5)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -107,7 +108,7 @@ class _MyCleanLogScreenState extends State<MyCleanLogScreen> with SingleTickerPr
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 1,
                     offset: const Offset(0, 1),
                   ),
@@ -204,73 +205,116 @@ class _MyCleanLogScreenState extends State<MyCleanLogScreen> with SingleTickerPr
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE2EBE5)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE6F4EA),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.eco,
-                  color: Color(0xFF2F7D4F),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      log.courseTitle,
-                      style: const TextStyle(
-                        fontFamily: '-apple-system',
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF233529),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${log.date} · 수거 중량: ${log.collectedWeightKg}kg',
-                      style: const TextStyle(
-                        fontFamily: '-apple-system',
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              Row(
                 children: [
-                  Text(
-                    '+${log.pointsEarned} P',
-                    style: const TextStyle(
-                      fontFamily: '-apple-system',
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE6F4EA),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.eco,
                       color: Color(0xFF2F7D4F),
+                      size: 20,
                     ),
                   ),
-                  const Text(
-                    '적립완료',
-                    style: TextStyle(
-                      fontFamily: '-apple-system',
-                      fontSize: 10,
-                      color: Colors.grey,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          log.courseTitle,
+                          style: const TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF233529),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${log.date} · 수거 중량: ${log.collectedWeightKg}kg',
+                          style: const TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '+${log.pointsEarned} P',
+                        style: const TextStyle(
+                          fontFamily: '-apple-system',
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2F7D4F),
+                        ),
+                      ),
+                      const Text(
+                        '적립완료',
+                        style: TextStyle(
+                          fontFamily: '-apple-system',
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      )
+                    ],
                   )
                 ],
-              )
+              ),
+              if (log.trashSummary.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Color(0xFFF0F3F1)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: log.trashSummary.entries
+                      .map((entry) => _buildTrashBadge(entry.key, entry.value))
+                      .toList(),
+                ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTrashBadge(TrashCategory category, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7F5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(category.emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 5),
+          Text(
+            '${category.label} $count',
+            style: const TextStyle(
+              fontFamily: '-apple-system',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3A4A41),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

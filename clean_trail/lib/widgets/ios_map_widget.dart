@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -205,7 +203,7 @@ class _IosMapWidgetState extends State<IosMapWidget> {
         border: Border.all(color: const Color(0xFFC8D6C5), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -234,11 +232,11 @@ class _IosMapWidgetState extends State<IosMapWidget> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                   )
                 ],
@@ -279,7 +277,7 @@ class _IosMapWidgetState extends State<IosMapWidget> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF2F7D4F).withOpacity(0.9),
+                color: const Color(0xFF2F7D4F).withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Row(
@@ -314,11 +312,11 @@ class _IosMapWidgetState extends State<IosMapWidget> {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: isPrimary ? const Color(0xFF2F7D4F) : Colors.white.withOpacity(0.9),
+        color: isPrimary ? const Color(0xFF2F7D4F) : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           )

@@ -76,7 +76,7 @@ class _IosButtonState extends State<IosButton> with SingleTickerProviderStateMix
               boxShadow: isEnabled
                   ? [
                       BoxShadow(
-                        color: bgColor.withOpacity(0.2),
+                        color: bgColor.withValues(alpha: 0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       )
