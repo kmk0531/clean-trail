@@ -13,6 +13,7 @@ import '../models/coupon.dart';
 import '../models/clean_log.dart';
 import '../models/trash_item.dart';
 import '../services/tour_api_service.dart';
+import '../services/trash_classifier_service.dart';
 
 /// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
 String _generateSalt([int length = 16]) {
@@ -573,16 +574,15 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 촬영된 쓰레기 사진의 종류를 분류한다.
-  /// TODO: 실제 이미지 분류 API(예: Cloud Vision) 연동 지점.
-  /// 지금은 1.2초 지연 후 랜덤 카테고리를 부여하는 시뮬레이션으로 동작한다.
-  void _classifyTrashItem(TrashItem item) {
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (!_trashItems.contains(item)) return; // 그 사이 삭제됐으면 무시
-      final categories = TrashCategory.values;
-      item.category = categories[Random().nextInt(categories.length)];
-      notifyListeners();
-    });
+  /// 촬영된 쓰레기 사진의 종류를 온디바이스 TFLite 모델로 분류한다.
+  /// (TrashNet 기반 MobileNetV2, lib/services/trash_classifier_service.dart)
+  Future<void> _classifyTrashItem(TrashItem item) async {
+    final category = await TrashClassifierService.instance.classify(item.photo);
+    if (!_trashItems.contains(item)) return; // 그 사이 삭제됐으면 무시
+
+    // 모델 로딩/추론 실패 시에도 사용자 흐름이 막히지 않도록 일반쓰레기로 폴백
+    item.category = category ?? TrashCategory.general;
+    notifyListeners();
   }
 
   /// 잘못 찍은 사진을 목록에서 제거한다.
