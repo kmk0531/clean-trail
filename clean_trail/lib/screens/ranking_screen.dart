@@ -57,7 +57,7 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2F7D4F).withOpacity(0.15),
+                  color: const Color(0xFF2F7D4F).withValues(alpha: 0.15),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -72,7 +72,7 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
@@ -123,7 +123,7 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
                       height: 8,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -162,7 +162,7 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 1,
                     offset: const Offset(0, 1),
                   ),

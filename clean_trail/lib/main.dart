@@ -50,7 +50,7 @@ class CleanTrailApp extends StatelessWidget {
           seedColor: const Color(0xFF2F7D4F),
           primary: const Color(0xFF2F7D4F),
           secondary: const Color(0xFF3F9D68),
-          background: const Color(0xFFF9FBF8),
+          surface: const Color(0xFFF9FBF8),
         ),
         useMaterial3: true,
         fontFamily: '-apple-system',

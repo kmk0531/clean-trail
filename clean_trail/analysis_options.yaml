@@ -24,5 +24,11 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+    # null-aware map entry(`?key: value`) 문법을 쓰라는 제안이지만, 이
+    # 값 타입이 non-nullable String인 Map<String, String>에 적용하면
+    # 실제로 타입 에러가 발생한다 (lib/services/tour_api_service.dart에서
+    # 확인됨). 현재의 `if (x != null) 'key': x` 패턴이 타입 안전하므로 끈다.
+    use_null_aware_elements: false
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
