@@ -50,9 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildLocationOption(context, '부산 (기본값)', 35.1796, 129.0756, '부산광역시청 일대 (가상)'),
-              _buildLocationOption(context, '속초 (코스 주변)', 38.1913, 128.6035, '속초 해수욕장 일대 (가상)'),
-              _buildLocationOption(context, '강릉 (코스 주변)', 37.7981, 128.9133, '강릉 경포호수 일대 (가상)'),
+              _buildLocationOption(context, '부산 (기본값)', 35.1796, 129.0756, '부산광역시청 일대 (가상)', areaCode: '6'),
+              _buildLocationOption(context, '속초 (코스 주변)', 38.1913, 128.6035, '속초 해수욕장 일대 (가상)', areaCode: '32'),
+              _buildLocationOption(context, '강릉 (코스 주변)', 37.7981, 128.9133, '강릉 경포호수 일대 (가상)', areaCode: '32'),
             ],
           ),
           actions: [
@@ -66,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLocationOption(BuildContext context, String title, double lat, double lng, String name) {
+  Widget _buildLocationOption(BuildContext context, String title, double lat, double lng, String name, {required String areaCode}) {
     final isSelected = widget.appState.userLatitude == lat && widget.appState.userLongitude == lng;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? const Icon(Icons.check_circle, color: Color(0xFF2F7D4F), size: 20) 
             : const Icon(Icons.circle_outlined, color: Colors.grey, size: 20),
         onTap: () {
-          widget.appState.setVirtualLocation(lat, lng, name);
+          widget.appState.setVirtualLocation(lat, lng, name, areaCode: areaCode);
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -239,6 +239,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
+            // 주변 도보여행 코스 추천 (한국관광공사 TourAPI, contentTypeId=25)
+            // TOUR_API_KEY 미설정이거나 결과가 없으면 섹션 자체를 숨긴다.
+            if (widget.appState.nearbyWalkingCourses.isNotEmpty) ...[
+              _buildWalkingCoursesSection(context),
+              const SizedBox(height: 24),
+            ],
+
             // Course List Title
             const Text(
               '반경 내 플로깅 코스',
@@ -264,6 +271,126 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildWalkingCoursesSection(BuildContext context) {
+    final walkingCourses = widget.appState.nearbyWalkingCourses;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.route, color: Color(0xFF2F7D4F), size: 18),
+            const SizedBox(width: 6),
+            const Text(
+              '주변 도보여행 코스 추천',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF233529),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F5EE),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                '한국관광공사',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5C6F61),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 128,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: walkingCourses.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              return _buildWalkingCourseCard(context, walkingCourses[index]);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalkingCourseCard(BuildContext context, TouristSpot course) {
+    return Container(
+      width: 168,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2EBE5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 64,
+            width: double.infinity,
+            color: const Color(0xFFE6F4EA),
+            child: course.imageUrl.isNotEmpty
+                ? Image.network(
+                    course.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stack) => const Icon(
+                      Icons.directions_walk,
+                      color: Color(0xFF2F7D4F),
+                      size: 28,
+                    ),
+                  )
+                : const Icon(
+                    Icons.directions_walk,
+                    color: Color(0xFF2F7D4F),
+                    size: 28,
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  course.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF233529),
+                  ),
+                ),
+                if (course.distance.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '내 위치에서 ${course.distance}',
+                    style: const TextStyle(
+                      fontFamily: '-apple-system',
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

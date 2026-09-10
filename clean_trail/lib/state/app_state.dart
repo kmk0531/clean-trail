@@ -61,6 +61,12 @@ class AppState extends ChangeNotifier {
   String _userLocationName = '부산광역시청 일대 (가상)';
   String get userLocationName => _userLocationName;
 
+  // TourAPI 지역코드 (areaBasedList2용). 가상 위치 프리셋에만 매핑되어 있다.
+  // areaBasedList2는 지역코드 기반 조회만 지원하고, locationBasedList2(좌표기반)는
+  // 여행코스(contentTypeId=25) 데이터를 반환하지 않는 것이 확인되어 이 필드가 필요하다.
+  String _userAreaCode = '6'; // 부산
+  String get userAreaCode => _userAreaCode;
+
   // Courses list
   List<PloggingCourse> _courses = [];
   List<PloggingCourse> get courses => _courses;
@@ -68,6 +74,13 @@ class AppState extends ChangeNotifier {
   // 한국관광공사 TourAPI 연동 상태 (New)
   bool _isLoadingNearbySpots = false;
   bool get isLoadingNearbySpots => _isLoadingNearbySpots;
+
+  // 주변 도보여행 코스 추천 (TourAPI contentTypeId=25, New)
+  List<TouristSpot> _nearbyWalkingCourses = [];
+  List<TouristSpot> get nearbyWalkingCourses => _nearbyWalkingCourses;
+
+  bool _isLoadingWalkingCourses = false;
+  bool get isLoadingWalkingCourses => _isLoadingWalkingCourses;
 
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
@@ -118,6 +131,7 @@ class AppState extends ChangeNotifier {
     _initializeMockData();
     _loadSession(); // 기기 내 저장된 유저 세션 정보 로딩
     refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
+    refreshNearbyWalkingCourses(); // 초기 위치 기준 주변 도보여행 코스 추천 로딩 (키 미설정 시 무동작)
   }
 
   // 기기 내 저장된 유저 세션 정보 로딩 (New)
@@ -278,15 +292,17 @@ class AppState extends ChangeNotifier {
   }
 
   // 가상 위치 실시간 변경 처리 (New)
-  void setVirtualLocation(double lat, double lng, String name) {
+  void setVirtualLocation(double lat, double lng, String name, {String? areaCode}) {
     _userLatitude = lat;
     _userLongitude = lng;
     _userLocationName = name;
+    if (areaCode != null) _userAreaCode = areaCode;
     _locationPermissionGranted = true; // 가상 위치 스위칭 시 위치 수집 활성화 처리
     notifyListeners();
 
     // 위치가 바뀌면 한국관광공사 TourAPI로 주변 관광지 정보를 새로 불러온다.
     refreshNearbySpots();
+    refreshNearbyWalkingCourses();
   }
 
   /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
@@ -319,6 +335,33 @@ class AppState extends ChangeNotifier {
       }
     } finally {
       _isLoadingNearbySpots = false;
+      notifyListeners();
+    }
+  }
+
+  /// 현재 사용자 위치(지역코드) 기준으로 한국관광공사 TourAPI에서 "여행코스"
+  /// (contentTypeId=25) 카테고리만 조회하여 주변 도보여행 코스 추천 목록을 갱신한다.
+  ///
+  /// TourAPI 확인 결과 locationBasedList2(좌표기반 반경검색)는 여행코스
+  /// 데이터를 반환하지 않아, areaBasedList2(지역코드기반)를 사용한다 — 그래서
+  /// 좌표가 아니라 [_userAreaCode](가상 위치 프리셋에 매핑된 지역코드)를 쓴다.
+  ///
+  /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 목록을 비워두고
+  /// 조용히 종료한다 (홈 화면은 추천 섹션 자체를 숨긴다).
+  Future<void> refreshNearbyWalkingCourses() async {
+    if (!TourApiService.instance.isConfigured) return;
+
+    _isLoadingWalkingCourses = true;
+    notifyListeners();
+
+    try {
+      _nearbyWalkingCourses = await TourApiService.instance.fetchSpotsByArea(
+        areaCode: _userAreaCode,
+        contentTypeId: '25',
+        numOfRows: 10,
+      );
+    } finally {
+      _isLoadingWalkingCourses = false;
       notifyListeners();
     }
   }

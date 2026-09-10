@@ -60,6 +60,8 @@ class TouristSpot {
         return '쇼핑';
       case '28':
         return '레포츠';
+      case '25':
+        return '여행코스';
       default:
         return '관광지';
     }
