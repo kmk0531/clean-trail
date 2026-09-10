@@ -319,10 +319,17 @@ class AppState extends ChangeNotifier {
   /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
   /// 각 플로깅 코스의 추천 스팟(recommendedSpots)을 실제 관광 데이터로 갱신한다.
   ///
+  /// 두루누비 코스(id가 'durunubi_'로 시작)는 대상에서 제외한다 —
+  /// [refreshDurunubiCourses]가 각 코스의 실제 시작 좌표 기준으로 이미
+  /// recommendedSpots를 채워두는데, 이 메서드는 사용자의 현재 위치(코스
+  /// 시작 좌표와 다를 수 있음) 기준으로 스팟을 나눠 배분하는 방식이라
+  /// 실행 순서에 따라 더 정확한 데이터를 부정확한 값으로 덮어쓸 수 있다.
+  ///
   /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 아무 것도 하지 않고
   /// 기존 목업 추천 스팟을 그대로 유지한다 (앱 동작에 영향 없음).
   Future<void> refreshNearbySpots() async {
     if (!TourApiService.instance.isConfigured || _courses.isEmpty) return;
+    if (_courses.every((c) => c.id.startsWith('durunubi_'))) return;
 
     _isLoadingNearbySpots = true;
     notifyListeners();
@@ -336,6 +343,8 @@ class AppState extends ChangeNotifier {
 
       if (spots.isNotEmpty) {
         // 코스별로 겹치지 않게 추천 스팟을 순서대로 나눠 배분한다.
+        // (두루누비 코스는 위 가드에서 걸러지므로 여기 도달하는 _courses는
+        // 항상 목업 코스다.)
         final perCourse = (spots.length / _courses.length).ceil().clamp(1, 4);
         _courses = List.generate(_courses.length, (i) {
           final start = i * perCourse;
@@ -427,7 +436,25 @@ class AppState extends ChangeNotifier {
         for (final course in matched) {
           final gpx = await DurunubiApiService.instance.fetchGpxCoordinates(course.gpxUrl);
           if (gpx.isEmpty) continue; // GPX 없으면 지도/미션에 쓸 수 없어 건너뜀
-          plottedCourses.add(PloggingCourse.fromDurunubi(course, gpxCoordinates: gpx));
+
+          // 이 코스의 시작 좌표 주변 TourAPI 관광지/음식점을 채워 넣는다.
+          // refreshNearbySpots()가 목업 _courses를 대상으로 이미 같은 일을
+          // 하지만, 그 호출과 이 메서드는 AppState() 생성자에서 거의 동시에
+          // 비동기로 시작돼 실행 순서를 보장할 수 없다 — 이 메서드가 나중에
+          // 끝나 _courses를 통째로 교체하면 recommendedSpots가 빈 채로
+          // 남을 수 있어, 여기서 직접 채운다.
+          final start = gpx.first;
+          final spots = await TourApiService.instance.fetchNearbySpots(
+            latitude: start['lat']!,
+            longitude: start['lng']!,
+            radiusMeters: 3000,
+          );
+
+          plottedCourses.add(PloggingCourse.fromDurunubi(
+            course,
+            gpxCoordinates: gpx,
+            recommendedSpots: spots,
+          ));
         }
         if (plottedCourses.isNotEmpty) {
           _courses = plottedCourses;
