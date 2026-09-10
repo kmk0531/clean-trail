@@ -437,23 +437,46 @@ class AppState extends ChangeNotifier {
           final gpx = await DurunubiApiService.instance.fetchGpxCoordinates(course.gpxUrl);
           if (gpx.isEmpty) continue; // GPX 없으면 지도/미션에 쓸 수 없어 건너뜀
 
-          // 이 코스의 시작 좌표 주변 TourAPI 관광지/음식점을 채워 넣는다.
+          // 코스 전 구간에 걸쳐 TourAPI 관광지/음식점을 채워 넣는다.
           // refreshNearbySpots()가 목업 _courses를 대상으로 이미 같은 일을
           // 하지만, 그 호출과 이 메서드는 AppState() 생성자에서 거의 동시에
           // 비동기로 시작돼 실행 순서를 보장할 수 없다 — 이 메서드가 나중에
           // 끝나 _courses를 통째로 교체하면 recommendedSpots가 빈 채로
           // 남을 수 있어, 여기서 직접 채운다.
-          final start = gpx.first;
-          final spots = await TourApiService.instance.fetchNearbySpots(
-            latitude: start['lat']!,
-            longitude: start['lng']!,
-            radiusMeters: 3000,
-          );
+          //
+          // 시작 좌표 하나만 기준으로 조회하면 10km 넘는 코스에서도 출발지
+          // 근처 스팟만 몰리므로, GPX 경로를 4등분한 지점(시작/1·3/2·3/끝)
+          // 각각에서 조회해 코스 전반에 고르게 분포시킨다. 지점당 반경은
+          // 좁혀서(1.5km) 서로 겹치는 스팟을 줄이고, 지점 수를 늘리는 대신
+          // 4곳으로 제한해 개발계정 일일 트래픽(1,000건)을 아낀다.
+          final sampleIndices = {
+            0,
+            (gpx.length * 1 / 3).floor(),
+            (gpx.length * 2 / 3).floor(),
+            gpx.length - 1,
+          };
+          final spotsAlongRoute = <TouristSpot>[];
+          final seenContentIds = <String>{};
+          for (final i in sampleIndices) {
+            final point = gpx[i.clamp(0, gpx.length - 1)];
+            final found = await TourApiService.instance.fetchNearbySpots(
+              latitude: point['lat']!,
+              longitude: point['lng']!,
+              radiusMeters: 1500,
+              numOfRows: 6,
+            );
+            for (final spot in found) {
+              // contentId가 없는(개별 구분 불가) 항목은 중복 검사 없이 추가.
+              final key = spot.contentId;
+              if (key != null && !seenContentIds.add(key)) continue;
+              spotsAlongRoute.add(spot);
+            }
+          }
 
           plottedCourses.add(PloggingCourse.fromDurunubi(
             course,
             gpxCoordinates: gpx,
-            recommendedSpots: spots,
+            recommendedSpots: spotsAlongRoute,
           ));
         }
         if (plottedCourses.isNotEmpty) {
