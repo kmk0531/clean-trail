@@ -1,3 +1,5 @@
+import '../services/durunubi_api_service.dart';
+
 class TouristSpot {
   final String name;
   final String category; // '관광지' or '음식점' or '카페'
@@ -114,6 +116,43 @@ class PloggingCourse {
       startLongitude: startLongitude,
       endLatitude: endLatitude,
       endLongitude: endLongitude,
+    );
+  }
+
+  /// 한국관광공사 두루누비 코스(DurunubiCourse) + 실제 GPX 경로 좌표를
+  /// 조합해 [PloggingCourse]를 만든다.
+  ///
+  /// 두루누비는 리워드 포인트 개념이 없으므로, 코스 거리(km)에 비례해
+  /// 앱 자체 규칙으로 계산한다 (기존 목업 코스들의 "약 5P/km" 수준에
+  /// 맞춤 — 해안 산책로 2.4km→12P, 호수 둘레길 3.1km→15P 참고).
+  /// GPX 파싱에 실패해 [gpxCoordinates]가 비어 있으면 시작/종료 좌표만이라도
+  /// 유효하도록 첫/끝 좌표를 각각 (0, 0)으로 둔다 — 이 경우 호출부에서
+  /// 지도에 표시하지 않고 목록 카드로만 노출하는 것을 권장한다.
+  factory PloggingCourse.fromDurunubi(
+    DurunubiCourse course, {
+    required List<Map<String, double>> gpxCoordinates,
+    List<TouristSpot> recommendedSpots = const [],
+  }) {
+    final hasPath = gpxCoordinates.isNotEmpty;
+    final start = hasPath ? gpxCoordinates.first : const {'lat': 0.0, 'lng': 0.0};
+    final end = hasPath ? gpxCoordinates.last : const {'lat': 0.0, 'lng': 0.0};
+
+    return PloggingCourse(
+      id: 'durunubi_${course.courseId}',
+      title: course.name,
+      durationMinutes: course.durationMinutes,
+      difficulty: course.levelLabel,
+      rewardPoints: (course.distanceKm * 5).round().clamp(5, 50),
+      distanceKm: course.distanceKm,
+      description: course.summary.isNotEmpty
+          ? course.summary
+          : '${course.sigun} 지역의 두루누비 인증 도보여행 코스입니다.',
+      recommendedSpots: recommendedSpots,
+      pathCoordinates: gpxCoordinates,
+      startLatitude: start['lat']!,
+      startLongitude: start['lng']!,
+      endLatitude: end['lat']!,
+      endLongitude: end['lng']!,
     );
   }
 }

@@ -246,6 +246,18 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
             ],
 
+            // 두루누비 걷기코스 참고 목록 (한국관광공사 두루누비 서비스)
+            // 아래 "반경 내 플로깅 코스"가 이미 이 데이터로 대체된 지역(매핑
+            // 완료)에서는 중복이라 숨기고, 아직 매핑 전(참고용 전체 목록만
+            // 채워진) 지역에서만 노출한다 — durunubiCourses가 비어 있지
+            // 않은데 courses[0].id가 durunubi_ 접두사가 아니면 매핑 전이다.
+            if (widget.appState.durunubiCourses.isNotEmpty &&
+                (widget.appState.courses.isEmpty ||
+                    !widget.appState.courses.first.id.startsWith('durunubi_'))) ...[
+              _buildDurunubiCoursesSection(context),
+              const SizedBox(height: 24),
+            ],
+
             // Course List Title
             const Text(
               '반경 내 플로깅 코스',
@@ -392,6 +404,93 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDurunubiCoursesSection(BuildContext context) {
+    final durunubiCourses = widget.appState.durunubiCourses;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.hiking, color: Color(0xFF2F7D4F), size: 18),
+            const SizedBox(width: 6),
+            const Text(
+              '두루누비 걷기 코스',
+              style: TextStyle(
+                fontFamily: '-apple-system',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF233529),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F5EE),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                '두루누비',
+                style: TextStyle(
+                  fontFamily: '-apple-system',
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5C6F61),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: durunubiCourses.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final course = durunubiCourses[index];
+              return Container(
+                width: 180,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2EBE5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      course.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF233529),
+                      ),
+                    ),
+                    Text(
+                      '${course.distanceKm}km · ${course.durationMinutes}분 · 난이도 ${course.levelLabel}',
+                      style: const TextStyle(
+                        fontFamily: '-apple-system',
+                        fontSize: 10,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

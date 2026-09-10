@@ -13,6 +13,8 @@ import '../models/coupon.dart';
 import '../models/clean_log.dart';
 import '../models/trash_item.dart';
 import '../services/tour_api_service.dart';
+import '../services/durunubi_api_service.dart';
+import '../data/durunubi_course_mapping.dart';
 import '../services/trash_classifier_service.dart';
 
 /// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
@@ -82,6 +84,13 @@ class AppState extends ChangeNotifier {
   bool _isLoadingWalkingCourses = false;
   bool get isLoadingWalkingCourses => _isLoadingWalkingCourses;
 
+  // 한국관광공사 두루누비 코스 (실제 GPX 경로 포함, New)
+  List<DurunubiCourse> _durunubiCourses = [];
+  List<DurunubiCourse> get durunubiCourses => _durunubiCourses;
+
+  bool _isLoadingDurunubiCourses = false;
+  bool get isLoadingDurunubiCourses => _isLoadingDurunubiCourses;
+
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
 
@@ -132,6 +141,7 @@ class AppState extends ChangeNotifier {
     _loadSession(); // 기기 내 저장된 유저 세션 정보 로딩
     refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
     refreshNearbyWalkingCourses(); // 초기 위치 기준 주변 도보여행 코스 추천 로딩 (키 미설정 시 무동작)
+    refreshDurunubiCourses(); // 두루누비 걷기코스(실제 GPX 경로) 로딩 (키 미설정 시 무동작)
   }
 
   // 기기 내 저장된 유저 세션 정보 로딩 (New)
@@ -303,6 +313,7 @@ class AppState extends ChangeNotifier {
     // 위치가 바뀌면 한국관광공사 TourAPI로 주변 관광지 정보를 새로 불러온다.
     refreshNearbySpots();
     refreshNearbyWalkingCourses();
+    refreshDurunubiCourses();
   }
 
   /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
@@ -362,6 +373,68 @@ class AppState extends ChangeNotifier {
       );
     } finally {
       _isLoadingWalkingCourses = false;
+      notifyListeners();
+    }
+  }
+
+  /// 한국관광공사 두루누비 서비스에서 현재 위치(가상 위치 프리셋)에 매핑된
+  /// 실제 걷기코스를 가져와, GPX 경로까지 포함한 [PloggingCourse]로 변환해
+  /// 플로깅 미션 코스 목록(_courses)에 반영한다.
+  ///
+  /// [durunubiCourseNamesByAreaCode]에 현재 지역코드로 매핑된 코스명이 있으면
+  /// 그 코스명들로 courseList(crsKorNm)를 조회하고, 각 코스의 GPX까지
+  /// 내려받아 목업 코스를 대체한다. 매핑이 비어 있으면(아직 조사 전)
+  /// 참고용으로 [durunubiCourses]에 전체 목록 상위 N개만 채워두고, 플로깅
+  /// 미션 코스는 기존 목업을 그대로 유지한다 — 그래서 매핑 조사가 끝나지
+  /// 않은 지역에서도 앱은 항상 정상 동작한다.
+  ///
+  /// DURUNUBI_API_KEY가 설정되지 않았거나 호출이 실패하면 아무 것도 하지
+  /// 않고 조용히 종료한다.
+  Future<void> refreshDurunubiCourses() async {
+    if (!DurunubiApiService.instance.isConfigured) return;
+
+    _isLoadingDurunubiCourses = true;
+    notifyListeners();
+
+    try {
+      final mappedNames = durunubiCourseNamesByAreaCode[_userAreaCode] ?? const [];
+
+      if (mappedNames.isEmpty) {
+        // 이 지역은 아직 매핑 조사가 안 됨 — 참고용 전체 목록만 채운다.
+        _durunubiCourses = await DurunubiApiService.instance.fetchCourses(
+          brdDiv: 'DNWW',
+          numOfRows: 10,
+        );
+        return;
+      }
+
+      final matched = <DurunubiCourse>[];
+      for (final name in mappedNames) {
+        final results = await DurunubiApiService.instance.fetchCourses(
+          crsKorNm: name,
+          brdDiv: 'DNWW',
+          numOfRows: 5,
+        );
+        // 코스명이 부분일치로 여러 건 돌아올 수 있어, 원문과 정확히 같은
+        // 것만 채택한다 (매핑 테이블에는 항상 API 원문을 넣기로 했으므로).
+        final exact = results.where((c) => c.name == name);
+        matched.addAll(exact.isNotEmpty ? exact : results.take(1));
+      }
+      _durunubiCourses = matched;
+
+      if (matched.isNotEmpty) {
+        final plottedCourses = <PloggingCourse>[];
+        for (final course in matched) {
+          final gpx = await DurunubiApiService.instance.fetchGpxCoordinates(course.gpxUrl);
+          if (gpx.isEmpty) continue; // GPX 없으면 지도/미션에 쓸 수 없어 건너뜀
+          plottedCourses.add(PloggingCourse.fromDurunubi(course, gpxCoordinates: gpx));
+        }
+        if (plottedCourses.isNotEmpty) {
+          _courses = plottedCourses;
+        }
+      }
+    } finally {
+      _isLoadingDurunubiCourses = false;
       notifyListeners();
     }
   }

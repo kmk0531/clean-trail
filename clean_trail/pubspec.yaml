@@ -46,6 +46,7 @@ dependencies:
   image_picker: ^1.1.2
   tflite_flutter: ^0.12.1
   image: ^4.9.2
+  xml: ^6.5.0 # 두루누비 코스의 GPX 경로 파일(XML) 파싱용
 
 
 
