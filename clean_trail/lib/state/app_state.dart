@@ -13,6 +13,8 @@ import '../models/coupon.dart';
 import '../models/clean_log.dart';
 import '../models/trash_item.dart';
 import '../services/tour_api_service.dart';
+import '../services/durunubi_api_service.dart';
+import '../data/durunubi_course_mapping.dart';
 import '../services/trash_classifier_service.dart';
 
 /// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
@@ -61,6 +63,12 @@ class AppState extends ChangeNotifier {
   String _userLocationName = '부산광역시청 일대 (가상)';
   String get userLocationName => _userLocationName;
 
+  // TourAPI 지역코드 (areaBasedList2용). 가상 위치 프리셋에만 매핑되어 있다.
+  // areaBasedList2는 지역코드 기반 조회만 지원하고, locationBasedList2(좌표기반)는
+  // 여행코스(contentTypeId=25) 데이터를 반환하지 않는 것이 확인되어 이 필드가 필요하다.
+  String _userAreaCode = '6'; // 부산
+  String get userAreaCode => _userAreaCode;
+
   // Courses list
   List<PloggingCourse> _courses = [];
   List<PloggingCourse> get courses => _courses;
@@ -68,6 +76,20 @@ class AppState extends ChangeNotifier {
   // 한국관광공사 TourAPI 연동 상태 (New)
   bool _isLoadingNearbySpots = false;
   bool get isLoadingNearbySpots => _isLoadingNearbySpots;
+
+  // 주변 도보여행 코스 추천 (TourAPI contentTypeId=25, New)
+  List<TouristSpot> _nearbyWalkingCourses = [];
+  List<TouristSpot> get nearbyWalkingCourses => _nearbyWalkingCourses;
+
+  bool _isLoadingWalkingCourses = false;
+  bool get isLoadingWalkingCourses => _isLoadingWalkingCourses;
+
+  // 한국관광공사 두루누비 코스 (실제 GPX 경로 포함, New)
+  List<DurunubiCourse> _durunubiCourses = [];
+  List<DurunubiCourse> get durunubiCourses => _durunubiCourses;
+
+  bool _isLoadingDurunubiCourses = false;
+  bool get isLoadingDurunubiCourses => _isLoadingDurunubiCourses;
 
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
@@ -118,6 +140,8 @@ class AppState extends ChangeNotifier {
     _initializeMockData();
     _loadSession(); // 기기 내 저장된 유저 세션 정보 로딩
     refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
+    refreshNearbyWalkingCourses(); // 초기 위치 기준 주변 도보여행 코스 추천 로딩 (키 미설정 시 무동작)
+    refreshDurunubiCourses(); // 두루누비 걷기코스(실제 GPX 경로) 로딩 (키 미설정 시 무동작)
   }
 
   // 기기 내 저장된 유저 세션 정보 로딩 (New)
@@ -278,24 +302,34 @@ class AppState extends ChangeNotifier {
   }
 
   // 가상 위치 실시간 변경 처리 (New)
-  void setVirtualLocation(double lat, double lng, String name) {
+  void setVirtualLocation(double lat, double lng, String name, {String? areaCode}) {
     _userLatitude = lat;
     _userLongitude = lng;
     _userLocationName = name;
+    if (areaCode != null) _userAreaCode = areaCode;
     _locationPermissionGranted = true; // 가상 위치 스위칭 시 위치 수집 활성화 처리
     notifyListeners();
 
     // 위치가 바뀌면 한국관광공사 TourAPI로 주변 관광지 정보를 새로 불러온다.
     refreshNearbySpots();
+    refreshNearbyWalkingCourses();
+    refreshDurunubiCourses();
   }
 
   /// 현재 사용자 위치 기준으로 한국관광공사 TourAPI(위치기반 관광정보)를 호출하여
   /// 각 플로깅 코스의 추천 스팟(recommendedSpots)을 실제 관광 데이터로 갱신한다.
   ///
+  /// 두루누비 코스(id가 'durunubi_'로 시작)는 대상에서 제외한다 —
+  /// [refreshDurunubiCourses]가 각 코스의 실제 시작 좌표 기준으로 이미
+  /// recommendedSpots를 채워두는데, 이 메서드는 사용자의 현재 위치(코스
+  /// 시작 좌표와 다를 수 있음) 기준으로 스팟을 나눠 배분하는 방식이라
+  /// 실행 순서에 따라 더 정확한 데이터를 부정확한 값으로 덮어쓸 수 있다.
+  ///
   /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 아무 것도 하지 않고
   /// 기존 목업 추천 스팟을 그대로 유지한다 (앱 동작에 영향 없음).
   Future<void> refreshNearbySpots() async {
     if (!TourApiService.instance.isConfigured || _courses.isEmpty) return;
+    if (_courses.every((c) => c.id.startsWith('durunubi_'))) return;
 
     _isLoadingNearbySpots = true;
     notifyListeners();
@@ -309,6 +343,8 @@ class AppState extends ChangeNotifier {
 
       if (spots.isNotEmpty) {
         // 코스별로 겹치지 않게 추천 스팟을 순서대로 나눠 배분한다.
+        // (두루누비 코스는 위 가드에서 걸러지므로 여기 도달하는 _courses는
+        // 항상 목업 코스다.)
         final perCourse = (spots.length / _courses.length).ceil().clamp(1, 4);
         _courses = List.generate(_courses.length, (i) {
           final start = i * perCourse;
@@ -319,6 +355,136 @@ class AppState extends ChangeNotifier {
       }
     } finally {
       _isLoadingNearbySpots = false;
+      notifyListeners();
+    }
+  }
+
+  /// 현재 사용자 위치(지역코드) 기준으로 한국관광공사 TourAPI에서 "여행코스"
+  /// (contentTypeId=25) 카테고리만 조회하여 주변 도보여행 코스 추천 목록을 갱신한다.
+  ///
+  /// TourAPI 확인 결과 locationBasedList2(좌표기반 반경검색)는 여행코스
+  /// 데이터를 반환하지 않아, areaBasedList2(지역코드기반)를 사용한다 — 그래서
+  /// 좌표가 아니라 [_userAreaCode](가상 위치 프리셋에 매핑된 지역코드)를 쓴다.
+  ///
+  /// TOUR_API_KEY가 설정되지 않았거나 API 호출이 실패하면 목록을 비워두고
+  /// 조용히 종료한다 (홈 화면은 추천 섹션 자체를 숨긴다).
+  Future<void> refreshNearbyWalkingCourses() async {
+    if (!TourApiService.instance.isConfigured) return;
+
+    _isLoadingWalkingCourses = true;
+    notifyListeners();
+
+    try {
+      _nearbyWalkingCourses = await TourApiService.instance.fetchSpotsByArea(
+        areaCode: _userAreaCode,
+        contentTypeId: '25',
+        numOfRows: 10,
+      );
+    } finally {
+      _isLoadingWalkingCourses = false;
+      notifyListeners();
+    }
+  }
+
+  /// 한국관광공사 두루누비 서비스에서 현재 위치(가상 위치 프리셋)에 매핑된
+  /// 실제 걷기코스를 가져와, GPX 경로까지 포함한 [PloggingCourse]로 변환해
+  /// 플로깅 미션 코스 목록(_courses)에 반영한다.
+  ///
+  /// [durunubiCourseNamesByAreaCode]에 현재 지역코드로 매핑된 코스명이 있으면
+  /// 그 코스명들로 courseList(crsKorNm)를 조회하고, 각 코스의 GPX까지
+  /// 내려받아 목업 코스를 대체한다. 매핑이 비어 있으면(아직 조사 전)
+  /// 참고용으로 [durunubiCourses]에 전체 목록 상위 N개만 채워두고, 플로깅
+  /// 미션 코스는 기존 목업을 그대로 유지한다 — 그래서 매핑 조사가 끝나지
+  /// 않은 지역에서도 앱은 항상 정상 동작한다.
+  ///
+  /// DURUNUBI_API_KEY가 설정되지 않았거나 호출이 실패하면 아무 것도 하지
+  /// 않고 조용히 종료한다.
+  Future<void> refreshDurunubiCourses() async {
+    if (!DurunubiApiService.instance.isConfigured) return;
+
+    _isLoadingDurunubiCourses = true;
+    notifyListeners();
+
+    try {
+      final mappedNames = durunubiCourseNamesByAreaCode[_userAreaCode] ?? const [];
+
+      if (mappedNames.isEmpty) {
+        // 이 지역은 아직 매핑 조사가 안 됨 — 참고용 전체 목록만 채운다.
+        _durunubiCourses = await DurunubiApiService.instance.fetchCourses(
+          brdDiv: 'DNWW',
+          numOfRows: 10,
+        );
+        return;
+      }
+
+      final matched = <DurunubiCourse>[];
+      for (final name in mappedNames) {
+        final results = await DurunubiApiService.instance.fetchCourses(
+          crsKorNm: name,
+          brdDiv: 'DNWW',
+          numOfRows: 5,
+        );
+        // 코스명이 부분일치로 여러 건 돌아올 수 있어, 원문과 정확히 같은
+        // 것만 채택한다 (매핑 테이블에는 항상 API 원문을 넣기로 했으므로).
+        final exact = results.where((c) => c.name == name);
+        matched.addAll(exact.isNotEmpty ? exact : results.take(1));
+      }
+      _durunubiCourses = matched;
+
+      if (matched.isNotEmpty) {
+        final plottedCourses = <PloggingCourse>[];
+        for (final course in matched) {
+          final gpx = await DurunubiApiService.instance.fetchGpxCoordinates(course.gpxUrl);
+          if (gpx.isEmpty) continue; // GPX 없으면 지도/미션에 쓸 수 없어 건너뜀
+
+          // 코스 전 구간에 걸쳐 TourAPI 관광지/음식점을 채워 넣는다.
+          // refreshNearbySpots()가 목업 _courses를 대상으로 이미 같은 일을
+          // 하지만, 그 호출과 이 메서드는 AppState() 생성자에서 거의 동시에
+          // 비동기로 시작돼 실행 순서를 보장할 수 없다 — 이 메서드가 나중에
+          // 끝나 _courses를 통째로 교체하면 recommendedSpots가 빈 채로
+          // 남을 수 있어, 여기서 직접 채운다.
+          //
+          // 시작 좌표 하나만 기준으로 조회하면 10km 넘는 코스에서도 출발지
+          // 근처 스팟만 몰리므로, GPX 경로를 4등분한 지점(시작/1·3/2·3/끝)
+          // 각각에서 조회해 코스 전반에 고르게 분포시킨다. 지점당 반경은
+          // 좁혀서(1.5km) 서로 겹치는 스팟을 줄이고, 지점 수를 늘리는 대신
+          // 4곳으로 제한해 개발계정 일일 트래픽(1,000건)을 아낀다.
+          final sampleIndices = {
+            0,
+            (gpx.length * 1 / 3).floor(),
+            (gpx.length * 2 / 3).floor(),
+            gpx.length - 1,
+          };
+          final spotsAlongRoute = <TouristSpot>[];
+          final seenContentIds = <String>{};
+          for (final i in sampleIndices) {
+            final point = gpx[i.clamp(0, gpx.length - 1)];
+            final found = await TourApiService.instance.fetchNearbySpots(
+              latitude: point['lat']!,
+              longitude: point['lng']!,
+              radiusMeters: 1500,
+              numOfRows: 6,
+            );
+            for (final spot in found) {
+              // contentId가 없는(개별 구분 불가) 항목은 중복 검사 없이 추가.
+              final key = spot.contentId;
+              if (key != null && !seenContentIds.add(key)) continue;
+              spotsAlongRoute.add(spot);
+            }
+          }
+
+          plottedCourses.add(PloggingCourse.fromDurunubi(
+            course,
+            gpxCoordinates: gpx,
+            recommendedSpots: spotsAlongRoute,
+          ));
+        }
+        if (plottedCourses.isNotEmpty) {
+          _courses = plottedCourses;
+        }
+      }
+    } finally {
+      _isLoadingDurunubiCourses = false;
       notifyListeners();
     }
   }

@@ -27,9 +27,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # TourAPI 키(env.json)와 Firebase 설정(google-services.json)은
+      # TourAPI/두루누비 키(env.json)와 Firebase 설정(google-services.json)은
       # 저장소에 커밋되지 않으므로, CI에서는 GitHub Secrets로 복원한다.
-      # TOUR_API_KEY가 없으면 관광정보 기능만 빠진 채로 빌드는 계속 진행되지만,
+      # 두 서비스(TourAPI의 KorService2, 두루누비의 Durunubi)는 공공데이터
+      # 포털의 같은 인증키를 서비스별로 활용신청해서 쓰는 구조라, 이 저장소는
+      # 동일한 TOUR_API_KEY secret 값을 두 dart-define 키에 함께 채운다
+      # (나중에 서로 다른 키로 분리하면 DURUNUBI_API_KEY secret을 새로 추가하고
+      # 아래에서 그 값을 읽도록 바꾸면 된다).
+      # 키가 없으면 관광정보/두루누비 기능만 빠진 채로 빌드는 계속 진행되지만,
       # google-services.json은 com.google.gms.google-services 플러그인이
       # 없으면 빌드 자체를 실패시키므로 secret이 비어 있으면 여기서 바로
       # 명확한 메시지로 실패시킨다 (Settings → Secrets and variables →
@@ -39,11 +44,15 @@ jobs:
       # 만들어질 수 있다 (실제로 겪은 문제: FormatException control
       # character). env로 한 번 감싸 셸 변수로 받은 뒤 python으로
       # JSON을 생성해 이 문제를 피한다.
-      - name: Restore env.json (TourAPI key)
+      - name: Restore env.json (TourAPI/두루누비 key)
         env:
           TOUR_API_KEY: ${{ secrets.TOUR_API_KEY }}
         run: |
-          python3 -c "import json, os; json.dump({'TOUR_API_KEY': os.environ.get('TOUR_API_KEY', '').strip()}, open('env.json', 'w'))"
+          python3 -c "
+          import json, os
+          key = os.environ.get('TOUR_API_KEY', '').strip()
+          json.dump({'TOUR_API_KEY': key, 'DURUNUBI_API_KEY': key}, open('env.json', 'w'))
+          "
 
       - name: Restore google-services.json (Firebase)
         env:
