@@ -147,7 +147,7 @@ class _AiResultScreenState extends State<AiResultScreen>
         ),
         const SizedBox(height: 12),
         const Text(
-          '업로드된 사진 데이터 및 GPS 타임스탬프의\n위변조 여부를 실시간 검증하고 있습니다.',
+          '촬영된 쓰레기 사진을 분석해\n종류를 분류하고 있습니다.',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: '-apple-system',

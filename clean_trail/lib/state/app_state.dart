@@ -235,6 +235,9 @@ class AppState extends ChangeNotifier {
       case 'operation-not-allowed':
         // 개발자 설정 문제라 사용자에게 그대로 노출하기보다 원인을 명시한다.
         return 'Firebase Console에서 이메일/비밀번호 로그인이 아직 활성화되지 않았습니다.';
+      case 'requires-recent-login':
+        // 회원 탈퇴 등 민감한 작업은 최근 로그인 상태여야 허용된다.
+        return '보안을 위해 재로그인이 필요합니다. 로그아웃 후 다시 로그인한 뒤 시도해 주세요.';
       default:
         return '인증 처리 중 오류가 발생했습니다 (${e.code}).';
     }
@@ -371,6 +374,58 @@ class AppState extends ChangeNotifier {
     _currentTab = 0;
     _onboarded = false;
     notifyListeners();
+  }
+
+  /// 회원 탈퇴 — Firestore에 저장된 유저 데이터(프로필/로그/쿠폰)를 모두
+  /// 삭제하고, Firebase Auth 계정 자체도 삭제한다. 스토어 심사 요건상
+  /// 로그인 기능이 있는 앱은 반드시 앱 내에서 탈퇴할 수 있는 경로를
+  /// 제공해야 하므로 로그아웃과 별도로 둔다.
+  ///
+  /// Firebase Auth는 계정 삭제처럼 민감한 작업에 "최근 로그인" 상태를
+  /// 요구할 수 있다 — 그 경우 [FirebaseAuthException]의 code가
+  /// 'requires-recent-login'으로 오며, 이때는 실패로 반환하고
+  /// [_lastAuthErrorMessage]에 재로그인 안내를 담는다.
+  Future<bool> deleteAccount() async {
+    _lastAuthErrorMessage = null;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    try {
+      // Auth 계정보다 먼저 지운다 — 순서가 반대면 인증이 끊긴 뒤라
+      // Firestore 보안 규칙(request.auth.uid == userId)을 통과하지 못한다.
+      await FirestoreService.instance.deleteUserData(user.uid);
+
+      try {
+        await GoogleSignIn().signOut();
+      } catch (e) {
+        debugPrint("소셜 로그아웃 예외 무시: $e");
+      }
+      await user.delete();
+
+      _isLoggedIn = false;
+      _userEmail = null;
+      _userName = null;
+      _loginType = null;
+      _totalPoints = 0;
+      _totalWeightKg = 0.0;
+      _totalMissionCount = 0;
+      _logs = [];
+      _coupons = [];
+      _ranking = [];
+      _currentTab = 0;
+      _onboarded = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _lastAuthErrorMessage = _describeAuthError(e);
+      notifyListeners();
+      return false;
+    } catch (e) {
+      debugPrint('회원 탈퇴 실패: $e');
+      _lastAuthErrorMessage = '탈퇴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+      notifyListeners();
+      return false;
+    }
   }
 
   // 가상 위치 실시간 변경 처리 (New)

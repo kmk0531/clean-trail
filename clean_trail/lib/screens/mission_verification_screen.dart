@@ -129,7 +129,7 @@ class MissionVerificationScreen extends StatelessWidget {
                                   Icon(Icons.check_circle, color: Color(0xFFE6F4EA), size: 14),
                                   SizedBox(width: 6),
                                   Text(
-                                    '현재 위치 자동 기록됨 (GPS·타임스탬프)',
+                                    '미션 진행 시간 기록 중',
                                     style: TextStyle(
                                       fontFamily: '-apple-system',
                                       fontSize: 11,

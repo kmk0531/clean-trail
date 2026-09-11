@@ -191,6 +191,29 @@ class FirestoreService {
     }
   }
 
+  /// 회원 탈퇴 시 유저의 Firestore 데이터를 전부 삭제한다.
+  /// 서브컬렉션(logs, coupons)은 상위 문서를 지운다고 자동으로 함께
+  /// 삭제되지 않으므로, 문서를 하나씩 모아 배치로 지운 뒤 프로필 문서를
+  /// 마지막에 삭제한다. Firebase Auth 계정 자체의 삭제는 호출하는 쪽
+  /// (AppState.deleteAccount)에서 이어서 처리한다.
+  Future<void> deleteUserData(String uid) async {
+    final userDoc = _users.doc(uid);
+
+    final logsSnapshot = await userDoc.collection('logs').get();
+    final couponsSnapshot = await userDoc.collection('coupons').get();
+
+    final batch = _db.batch();
+    for (final doc in logsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in couponsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(userDoc);
+
+    await batch.commit();
+  }
+
   /// 누적 수거량(totalWeightKg) 기준 상위 랭킹을 가져온다.
   Future<List<RankingEntry>> fetchTopRankedUsers({int limit = 20}) async {
     try {

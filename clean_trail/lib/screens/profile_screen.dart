@@ -261,6 +261,29 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Account deletion row
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2EBE5)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: const Icon(Icons.person_remove_outlined, color: Colors.grey),
+                title: const Text(
+                  '회원 탈퇴',
+                  style: TextStyle(
+                    fontFamily: '-apple-system',
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () => _confirmDeleteAccount(context, appState),
+              ),
+            ),
             const SizedBox(height: 30),
           ],
         ),
@@ -290,5 +313,48 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildDivider() {
     return const Divider(height: 1, indent: 56, color: Color(0xFFE2EBE5));
+  }
+
+  /// 회원 탈퇴 확인 다이얼로그. 되돌릴 수 없는 작업이라 한 번 더 확인을 받고,
+  /// 진행 중에는 닫을 수 없는 로딩 다이얼로그로 이중 탭을 막는다.
+  Future<void> _confirmDeleteAccount(BuildContext context, AppState appState) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('정말 탈퇴하시겠어요?'),
+        content: const Text(
+          '탈퇴 시 보유 포인트, 클린로그, 쿠폰 등 모든 데이터가 즉시 삭제되며 복구할 수 없습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('탈퇴', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final success = await appState.deleteAccount();
+    if (!context.mounted) return;
+    Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? '탈퇴가 완료되었습니다.' : (appState.lastAuthErrorMessage ?? '탈퇴 처리에 실패했습니다.'),
+        ),
+      ),
+    );
   }
 }
