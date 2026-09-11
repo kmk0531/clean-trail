@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../models/coupon.dart';
+import '../services/firestore_service.dart';
 
 class StoreScannerScreen extends StatefulWidget {
   final AppState appState;
@@ -18,6 +19,7 @@ class StoreScannerScreen extends StatefulWidget {
 
 class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTickerProviderStateMixin {
   Coupon? _scannedCoupon;
+  CouponRedeemResult? _scanResult;
   bool _isValidating = false;
   late AnimationController _scannerLineController;
 
@@ -36,22 +38,28 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
     super.dispose();
   }
 
-  void _simulateScan(Coupon coupon) {
+  void _simulateScan(Coupon coupon) async {
     if (_isValidating) return;
     setState(() {
       _isValidating = true;
       _scannedCoupon = null;
+      _scanResult = null;
     });
 
-    // Simulates scan evaluation duration
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
-      setState(() {
-        _isValidating = false;
-        _scannedCoupon = coupon;
-      });
-      // Mark coupon as used in app state database
-      widget.appState.redeemCoupon(coupon.id);
+    // Simulates scan evaluation duration (실제 카메라 스캔은 다음 단계에서 추가 예정,
+    // 지금은 목록에서 탭해 스캔을 흉내내지만 검증 자체는 Firestore 서버에서 이뤄진다).
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    // 서버(Firestore)에 실제로 사용 처리를 요청하고, 결과를 화면에 그대로 반영한다.
+    // 이미 사용된 쿠폰이거나 존재하지 않으면 "유효한 쿠폰" 화면 대신 오류를 보여준다.
+    final result = await widget.appState.redeemCoupon(coupon.id);
+    if (!mounted) return;
+
+    setState(() {
+      _isValidating = false;
+      _scannedCoupon = coupon;
+      _scanResult = result;
     });
   }
 
@@ -91,6 +99,26 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
+                      // 가맹점 협의가 완료되기 전까지는 실제 매장으로 오인되지 않도록
+                      // 데모 화면임을 명시한다.
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '가맹점 협의 전 데모 화면입니다. 실제 매장 제휴가 아닙니다.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 11,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       // Store Name
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -98,9 +126,9 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                           const Icon(Icons.storefront, color: Color(0xFF3F9D68), size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            widget.appState.selectedCourse?.id == 'course_1' 
-                                ? '카페 브리즈 (제휴가맹점)' 
-                                : '○○ 가맹점 사장님 화면',
+                            widget.appState.selectedCourse?.id == 'course_1'
+                                ? '[예시] 해안 산책로 인근 카페 · 사장님 화면'
+                                : '[예시] ○○ 가맹점 사장님 화면',
                             style: const TextStyle(
                               fontFamily: '-apple-system',
                               fontSize: 16,
@@ -324,28 +352,39 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
       );
     }
 
+    // 서버(Firestore) 검증 결과에 따라 성공/실패 표시를 분기한다.
+    final isSuccess = _scanResult == CouponRedeemResult.success;
+    final statusColor = isSuccess ? const Color(0xFF3F9D68) : const Color(0xFFE04F3F);
+    final statusIcon = isSuccess ? Icons.check_circle : Icons.error;
+    final statusTitle = switch (_scanResult) {
+      CouponRedeemResult.success => '유효한 쿠폰 확인됨',
+      CouponRedeemResult.alreadyUsed => '이미 사용된 쿠폰입니다',
+      CouponRedeemResult.notFound => '유효하지 않은 쿠폰입니다',
+      null => '검증 중 오류가 발생했습니다',
+    };
+
     return Container(
       padding: const EdgeInsets.all(20),
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF2E3D34),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF3F9D68), width: 1.5),
+        border: Border.all(color: statusColor, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.check_circle, color: Color(0xFF3F9D68), size: 20),
-              SizedBox(width: 8),
+              Icon(statusIcon, color: statusColor, size: 20),
+              const SizedBox(width: 8),
               Text(
-                '유효한 쿠폰 확인됨',
+                statusTitle,
                 style: TextStyle(
                   fontFamily: '-apple-system',
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Color(0xFF3F9D68),
+                  color: statusColor,
                 ),
               ),
             ],
@@ -377,14 +416,14 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
               color: Colors.black26,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                '✓ 사용 처리 완료 (데이터베이스 동기화됨)',
+                isSuccess ? '✓ 사용 처리 완료 (Firestore 서버 검증됨)' : '✕ 사용 처리 거부됨 (서버 검증 실패)',
                 style: TextStyle(
                   fontFamily: '-apple-system',
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF3F9D68),
+                  color: statusColor,
                 ),
               ),
             ),
