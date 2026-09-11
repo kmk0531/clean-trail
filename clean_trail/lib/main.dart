@@ -246,7 +246,7 @@ class _MainRouterState extends State<MainRouter> {
                   },
                 ),
                 // Screen 07
-                const RankingScreen(),
+                RankingScreen(appState: _appState),
                 // Screen 08
                 MyCleanLogScreen(
                   appState: _appState,

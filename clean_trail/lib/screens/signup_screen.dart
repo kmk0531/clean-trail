@@ -54,7 +54,7 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pop(context); // 회원가입 화면 닫기 (이전 화면인 로그인 화면에서 로그인 이벤트를 받아 라우터가 갱신됨)
       } else {
         setState(() {
-          _errorMessage = '이미 등록된 이메일 주소입니다.';
+          _errorMessage = widget.appState.lastAuthErrorMessage ?? '회원가입에 실패했습니다.';
         });
       }
     }

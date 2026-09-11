@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!success) {
         setState(() {
-          _errorMessage = '이메일 또는 비밀번호가 일치하지 않습니다.';
+          _errorMessage = widget.appState.lastAuthErrorMessage ?? '이메일 또는 비밀번호가 일치하지 않습니다.';
         });
       }
     }

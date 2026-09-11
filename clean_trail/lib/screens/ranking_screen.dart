@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../state/app_state.dart';
 
 class RankingScreen extends StatefulWidget {
-  const RankingScreen({super.key});
+  final AppState appState;
+
+  const RankingScreen({super.key, required this.appState});
 
   @override
   State<RankingScreen> createState() => _RankingScreenState();
@@ -195,39 +198,46 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildRegionalList() {
-    final List<Map<String, dynamic>> ranks = [
-      {'rank': 1, 'name': '초록발자국', 'score': '42.5kg', 'level': 'Lv.4'},
-      {'rank': 2, 'name': '바다지기', 'score': '38.1kg', 'level': 'Lv.4'},
-      {'rank': 3, 'name': '에코메이트', 'score': '34.0kg', 'level': 'Lv.3'},
-      {'rank': 4, 'name': '청정강산', 'score': '29.5kg', 'level': 'Lv.3'},
-      {'rank': 5, 'name': '클린웨이브', 'score': '25.2kg', 'level': 'Lv.2'},
-    ];
+  // "지역별"/"기간별" 두 탭 모두, 현재는 Firestore users 컬렉션을 누적
+  // 수거량(totalWeightKg) 기준으로 집계한 같은 랭킹을 보여준다. 이전에는
+  // 각 탭이 서로 다른 5명을 하드코딩해 보여줬지만, 실제 사용자 데이터에는
+  // 아직 지역/기간 구분 필드가 없어 이번 범위에서는 동일 데이터를 재사용한다
+  // (탭 구조 자체는 향후 지역/기간별 집계를 붙일 수 있도록 유지).
+  Widget _buildRegionalList() => _buildRankListView();
 
-    return _buildRankListView(ranks);
-  }
+  Widget _buildPeriodList() => _buildRankListView();
 
-  Widget _buildPeriodList() {
-    final List<Map<String, dynamic>> ranks = [
-      {'rank': 1, 'name': '클린캠퍼', 'score': '12.4kg', 'level': 'Lv.3'},
-      {'rank': 2, 'name': '초록발자국', 'score': '11.8kg', 'level': 'Lv.4'},
-      {'rank': 3, 'name': '자연사랑', 'score': '10.2kg', 'level': 'Lv.2'},
-      {'rank': 4, 'name': '지구지킴이', 'score': '9.5kg', 'level': 'Lv.2'},
-      {'rank': 5, 'name': '해피플로거', 'score': '8.1kg', 'level': 'Lv.1'},
-    ];
+  Widget _buildRankListView() {
+    if (widget.appState.isLoadingRanking && widget.appState.ranking.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF2F7D4F)));
+    }
 
-    return _buildRankListView(ranks);
-  }
+    final entries = widget.appState.ranking;
+    if (entries.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32.0),
+          child: Text(
+            '아직 랭킹에 표시할 사용자가 없습니다.\n플로깅 미션을 완료하고 첫 랭커가 되어보세요!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: '-apple-system',
+              fontSize: 13,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
 
-  Widget _buildRankListView(List<Map<String, dynamic>> ranks) {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
       physics: const BouncingScrollPhysics(),
-      itemCount: ranks.length,
+      itemCount: entries.length,
       separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200]),
       itemBuilder: (context, index) {
-        final item = ranks[index];
-        final int rank = item['rank'];
+        final entry = entries[index];
+        final rank = index + 1;
 
         Widget rankLeading;
         if (rank == 1) {
@@ -252,6 +262,8 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
           );
         }
 
+        final displayName = entry.name.isNotEmpty ? entry.name : '익명';
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Row(
@@ -270,7 +282,7 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
                 ),
                 child: Center(
                   child: Text(
-                    item['name'].substring(0, 1),
+                    displayName.substring(0, 1),
                     style: const TextStyle(
                       fontFamily: '-apple-system',
                       fontSize: 14,
@@ -284,46 +296,20 @@ class _RankingScreenState extends State<RankingScreen> with SingleTickerProvider
 
               // User Info
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          item['name'],
-                          style: const TextStyle(
-                            fontFamily: '-apple-system',
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF233529),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F4EA),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            item['level'],
-                            style: const TextStyle(
-                              fontFamily: '-apple-system',
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2F7D4F),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: Text(
+                  displayName,
+                  style: const TextStyle(
+                    fontFamily: '-apple-system',
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF233529),
+                  ),
                 ),
               ),
 
               // Weight Score
               Text(
-                item['score'],
+                '${entry.totalWeightKg.toStringAsFixed(1)}kg',
                 style: const TextStyle(
                   fontFamily: '-apple-system',
                   fontSize: 15,

@@ -1,11 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/course.dart';
@@ -16,18 +12,7 @@ import '../services/tour_api_service.dart';
 import '../services/durunubi_api_service.dart';
 import '../data/durunubi_course_mapping.dart';
 import '../services/trash_classifier_service.dart';
-
-/// 비밀번호를 평문으로 저장하지 않기 위한 salt + SHA-256 해싱 유틸.
-String _generateSalt([int length = 16]) {
-  final random = Random.secure();
-  final bytes = List<int>.generate(length, (_) => random.nextInt(256));
-  return base64UrlEncode(bytes);
-}
-
-String _hashPassword(String password, String salt) {
-  final bytes = utf8.encode('$salt:$password');
-  return sha256.convert(bytes).toString();
-}
+import '../services/firestore_service.dart';
 
 class AppState extends ChangeNotifier {
   // Navigation & Onboarding State
@@ -91,6 +76,13 @@ class AppState extends ChangeNotifier {
   bool _isLoadingDurunubiCourses = false;
   bool get isLoadingDurunubiCourses => _isLoadingDurunubiCourses;
 
+  // 누적 수거량 기준 랭킹 (Firestore users 컬렉션 집계, New)
+  List<RankingEntry> _ranking = [];
+  List<RankingEntry> get ranking => _ranking;
+
+  bool _isLoadingRanking = false;
+  bool get isLoadingRanking => _isLoadingRanking;
+
   PloggingCourse? _selectedCourse;
   PloggingCourse? get selectedCourse => _selectedCourse;
 
@@ -142,78 +134,154 @@ class AppState extends ChangeNotifier {
     refreshNearbySpots(); // 초기 위치 기준 한국관광공사 관광정보 로딩 (키 미설정 시 무동작)
     refreshNearbyWalkingCourses(); // 초기 위치 기준 주변 도보여행 코스 추천 로딩 (키 미설정 시 무동작)
     refreshDurunubiCourses(); // 두루누비 걷기코스(실제 GPX 경로) 로딩 (키 미설정 시 무동작)
+    fetchRanking(); // 누적 수거량 기준 랭킹 로딩
   }
 
-  // 기기 내 저장된 유저 세션 정보 로딩 (New)
-  Future<void> _loadSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    _userEmail = prefs.getString('userEmail');
-    _userName = prefs.getString('userName');
-    _loginType = prefs.getString('loginType');
-    
-    // 만약 로그인 정보가 로드되면 바로 온보딩 단계를 넘어가도록 구성
-    if (_isLoggedIn) {
-      _onboarded = true;
+  /// Firestore users 컬렉션에서 누적 수거량(totalWeightKg) 기준 상위 랭킹을
+  /// 가져온다. 실제 가입자가 적을 때는 목록이 짧게(또는 나 혼자) 나올 수
+  /// 있는데, 그건 정상 동작이다 — 이전의 5명 하드코딩 목업을 실제 집계로
+  /// 대체하는 것이 목적이라 데이터 양은 이번 범위가 아니다.
+  Future<void> fetchRanking() async {
+    _isLoadingRanking = true;
+    notifyListeners();
+
+    try {
+      _ranking = await FirestoreService.instance.fetchTopRankedUsers();
+    } finally {
+      _isLoadingRanking = false;
+      notifyListeners();
     }
+  }
+
+  // Firebase Auth 세션 로딩 — 앱을 새로 켰을 때 이미 로그인된 사용자가
+  // 있으면(Firebase Auth가 기기에 세션을 유지) 그 사용자로 바로 복귀한다.
+  // 계정/세션의 단일 진실 공급원은 Firebase Auth이며, 프로필/통계/기록은
+  // Firestore(users/{uid})에 있다 — SharedPreferences는 더 이상 세션에
+  // 관여하지 않는다.
+  Future<void> _loadSession() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await _hydrateFromFirebaseUser(user);
+  }
+
+  /// FirebaseAuth의 User 객체로부터 앱 상태(로그인 정보 + Firestore 프로필)를
+  /// 채운다. 로그인/회원가입/세션 복구가 모두 이 메서드로 수렴한다.
+  Future<void> _hydrateFromFirebaseUser(User user) async {
+    _isLoggedIn = true;
+    // 익명 로그인(구글/네이버 데모 폴백)은 user.email이 항상 null이라, 호출부가
+    // 미리 세팅해둔 _userEmail(데모용 표시 이메일)을 그대로 둔다. 이메일/구글
+    // 정식 로그인은 user.email이 실제 값을 갖고 있으니 그걸 우선한다.
+    _userEmail = user.email ?? _userEmail ?? '';
+    _userName = user.displayName ?? _userEmail?.split('@').first ?? '사용자';
+    _loginType = _loginType ?? 'email';
+    _onboarded = true;
+    notifyListeners();
+
+    // Firestore에 프로필 문서가 없으면 새로 만들고(신규 유저), 있으면
+    // 건드리지 않는다(재로그인 시 기존 누적 통계 보존).
+    await FirestoreService.instance.ensureUserProfile(
+      uid: user.uid,
+      email: _userEmail ?? '',
+      name: _userName ?? '',
+      loginType: _loginType ?? 'email',
+    );
+
+    await _refreshStatsFromFirestore(user.uid);
+    await _refreshLogsAndCouponsFromFirestore(user.uid);
+  }
+
+  /// Firestore의 users/{uid} 프로필 문서에서 누적 통계를 읽어와 반영한다.
+  Future<void> _refreshStatsFromFirestore(String uid) async {
+    final profile = await FirestoreService.instance.fetchUserProfile(uid);
+    if (profile == null) return;
+
+    _totalPoints = (profile['totalPoints'] as num?)?.toInt() ?? _totalPoints;
+    _totalWeightKg = (profile['totalWeightKg'] as num?)?.toDouble() ?? _totalWeightKg;
+    _totalMissionCount = (profile['totalMissionCount'] as num?)?.toInt() ?? _totalMissionCount;
     notifyListeners();
   }
 
-  // 이메일 회원가입 (New)
-  Future<bool> signupWithEmail(String email, String password, String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    final users = prefs.getStringList('local_users') ?? [];
+  /// Firestore의 로그/쿠폰 서브컬렉션을 읽어와 로컬 목업 리스트를 대체한다.
+  Future<void> _refreshLogsAndCouponsFromFirestore(String uid) async {
+    final logs = await FirestoreService.instance.fetchLogs(uid);
+    final coupons = await FirestoreService.instance.fetchCoupons(uid);
 
-    // 중복 이메일 체크
-    for (var u in users) {
-      final parts = u.split(':');
-      if (parts[0] == email) {
-        return false;
-      }
-    }
-
-    // 사용자 추가 (email:salt:passwordHash:name 포맷, 비밀번호는 평문 저장하지 않음)
-    final salt = _generateSalt();
-    final hash = _hashPassword(password, salt);
-    users.add('$email:$salt:$hash:$name');
-    await prefs.setStringList('local_users', users);
-
-    // 가입 성공 시 자동 로그인 연계
-    return await loginWithEmail(email, password);
+    if (logs.isNotEmpty) _logs = logs;
+    if (coupons.isNotEmpty) _coupons = coupons;
+    notifyListeners();
   }
 
-  // 이메일 로그인 (New)
-  Future<bool> loginWithEmail(String email, String password) async {
-    final prefs = await SharedPreferences.getInstance();
-    final users = prefs.getStringList('local_users') ?? [];
+  // 마지막으로 실패한 이메일 회원가입/로그인의 사유를 사용자에게 보여줄 수
+  // 있는 한국어 문구로 담아둔다. UI가 signupWithEmail/loginWithEmail의 bool
+  // 반환값만으로는 실패 사유(이메일 중복인지, Firebase Console에서 이메일/
+  // 비밀번호 로그인 자체가 꺼져 있는지 등)를 구분할 수 없어서 별도로 둔다.
+  String? _lastAuthErrorMessage;
+  String? get lastAuthErrorMessage => _lastAuthErrorMessage;
 
-    for (var u in users) {
-      final parts = u.split(':');
-      if (parts.length < 4 || parts[0] != email) continue;
+  /// FirebaseAuthException의 코드를 화면에 보여줄 한국어 문구로 변환한다.
+  String _describeAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return '이미 등록된 이메일 주소입니다.';
+      case 'invalid-email':
+        return '올바르지 않은 이메일 형식입니다.';
+      case 'weak-password':
+        return '비밀번호가 너무 약합니다. 6자리 이상으로 설정해 주세요.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return '이메일 또는 비밀번호가 일치하지 않습니다.';
+      case 'operation-not-allowed':
+        // 개발자 설정 문제라 사용자에게 그대로 노출하기보다 원인을 명시한다.
+        return 'Firebase Console에서 이메일/비밀번호 로그인이 아직 활성화되지 않았습니다.';
+      default:
+        return '인증 처리 중 오류가 발생했습니다 (${e.code}).';
+    }
+  }
 
-      final salt = parts[1];
-      final storedHash = parts[2];
-      final name = parts.sublist(3).join(':');
-      final inputHash = _hashPassword(password, salt);
+  // 이메일 회원가입 — Firebase Auth로 계정을 만든다. 비밀번호는 앱이 직접
+  // 해싱/저장하지 않고 Firebase Auth가 안전하게 처리한다.
+  Future<bool> signupWithEmail(String email, String password, String name) async {
+    _lastAuthErrorMessage = null;
+    try {
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await credential.user?.updateDisplayName(name);
+      _userName = name;
+      _loginType = 'email';
 
-      if (storedHash == inputHash) {
-        _isLoggedIn = true;
-        _userEmail = email;
-        _userName = name;
-        _loginType = 'email';
-
-        await prefs.setBool('isLoggedIn', true);
-        await prefs.setString('userEmail', _userEmail!);
-        await prefs.setString('userName', _userName!);
-        await prefs.setString('loginType', 'email');
-
-        _onboarded = true;
-        notifyListeners();
-        return true;
-      }
+      final user = credential.user;
+      if (user == null) return false;
+      await _hydrateFromFirebaseUser(user);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('이메일 회원가입 실패: ${e.code}');
+      _lastAuthErrorMessage = _describeAuthError(e);
       return false;
     }
-    return false;
+  }
+
+  // 이메일 로그인 — Firebase Auth로 인증한다.
+  Future<bool> loginWithEmail(String email, String password) async {
+    _lastAuthErrorMessage = null;
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) return false;
+      _loginType = 'email';
+      await _hydrateFromFirebaseUser(user);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('이메일 로그인 실패: ${e.code}');
+      _lastAuthErrorMessage = _describeAuthError(e);
+      return false;
+    }
   }
 
   // 구글 소셜 로그인 연동 (Firebase Auth)
@@ -238,62 +306,66 @@ class AppState extends ChangeNotifier {
       final User? user = userCredential.user;
 
       if (user != null) {
-        await loginWithSocial(
-          'google',
-          user.email ?? 'google_user@cleantrail.com',
-          user.displayName ?? '구글 사용자',
-        );
+        _loginType = 'google';
+        await _hydrateFromFirebaseUser(user);
         return true;
       }
     } catch (e) {
       debugPrint("Firebase Google 로그인 에러 (Fallback 모드 작동): $e");
-      // Firebase 설정(google-services.json) 미적용 환경인 경우 데모용 가상 로그인 처리
-      await loginWithSocial(
-        'google',
-        'clean_google@gmail.com',
-        '구글 사용자 (Demo)',
-      );
-      return true;
+      // Firebase 설정(google-services.json) 미적용 환경인 경우 데모용 익명
+      // 계정으로 로그인해, 로그인 실패 없이도 서버(Firestore) 연동은 그대로
+      // 검증할 수 있게 한다.
+      try {
+        final anonCredential = await FirebaseAuth.instance.signInAnonymously();
+        final user = anonCredential.user;
+        if (user == null) return false;
+        await user.updateDisplayName('구글 사용자 (Demo)');
+        _loginType = 'google';
+        _userEmail = 'clean_google_demo@cleantrail.com';
+        await _hydrateFromFirebaseUser(user);
+        return true;
+      } catch (fallbackError) {
+        debugPrint('익명 로그인 폴백도 실패: $fallbackError');
+        return false;
+      }
     }
     return false;
   }
 
-  // 소셜 로그인 모의 처리 및 세션 저장
-  Future<void> loginWithSocial(String type, String email, String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    _isLoggedIn = true;
-    _userEmail = email;
-    _userName = name;
-    _loginType = type;
+  /// 실제 SDK 연동이 없는 소셜 로그인(예: 네이버)의 데모용 처리.
+  /// Firebase Auth 익명 로그인으로 실제 uid를 발급받아, 로그인 타입/표시
+  /// 이름만 [type]/[name]으로 보이도록 하고 나머지 흐름(Firestore 프로필
+  /// 생성 등)은 다른 로그인 방식과 동일하게 태운다.
+  Future<bool> loginWithSocial(String type, String email, String name) async {
+    try {
+      final credential = await FirebaseAuth.instance.signInAnonymously();
+      final user = credential.user;
+      if (user == null) return false;
 
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('userEmail', _userEmail!);
-    await prefs.setString('userName', _userName!);
-    await prefs.setString('loginType', type);
-
-    _onboarded = true;
-    notifyListeners();
+      await user.updateDisplayName(name);
+      _loginType = type;
+      _userEmail = email;
+      await _hydrateFromFirebaseUser(user);
+      return true;
+    } catch (e) {
+      debugPrint('$type 데모 로그인 실패: $e');
+      return false;
+    }
   }
 
   // 로그아웃 (Firebase Auth 및 GoogleSignIn 해제 포함)
   Future<void> logout() async {
     try {
-      await FirebaseAuth.instance.signOut();
       await GoogleSignIn().signOut();
     } catch (e) {
       debugPrint("소셜 로그아웃 예외 무시: $e");
     }
+    await FirebaseAuth.instance.signOut();
 
-    final prefs = await SharedPreferences.getInstance();
     _isLoggedIn = false;
     _userEmail = null;
     _userName = null;
     _loginType = null;
-
-    await prefs.setBool('isLoggedIn', false);
-    await prefs.remove('userEmail');
-    await prefs.remove('userName');
-    await prefs.remove('loginType');
 
     // 상태 복구
     _currentTab = 0;
@@ -779,29 +851,31 @@ class AppState extends ChangeNotifier {
     _totalMissionCount += 1;
     // Add a random weight collected between 0.5kg and 2.0kg
     double weightAdded = 0.5 + (DateTime.now().millisecond % 15) / 10.0;
-    _totalWeightKg += double.parse(weightAdded.toStringAsFixed(1));
+    weightAdded = double.parse(weightAdded.toStringAsFixed(1));
+    _totalWeightKg += weightAdded;
 
     // Create a new coupon
     String newCouponId = 'coupon_${DateTime.now().millisecondsSinceEpoch}';
-    String shopName = _selectedCourse!.id == 'course_1' 
-        ? '해안가 카페 브리즈' 
+    String shopName = _selectedCourse!.id == 'course_1'
+        ? '해안가 카페 브리즈'
         : _selectedCourse!.id == 'course_2'
             ? '시장골목 고기만두집'
             : '호수공원 피크닉 카페';
-            
+
     String discountDetails = _selectedCourse!.id == 'course_1'
         ? '아메리카노 30% 즉시 할인'
         : _selectedCourse!.id == 'course_2'
             ? '수제 만두 1인분 무료 쿠폰'
             : '돗자리 & 커피 2잔 세트 20% 할인';
 
-    _coupons.insert(0, Coupon(
+    final newCoupon = Coupon(
       id: newCouponId,
       shopName: shopName,
       discountDetails: discountDetails,
       expiryDate: '2026.08.31',
       isUsed: false,
-    ));
+    );
+    _coupons.insert(0, newCoupon);
 
     // 촬영된 쓰레기 항목들을 카테고리별로 집계
     final Map<TrashCategory, int> trashSummary = {};
@@ -812,14 +886,15 @@ class AppState extends ChangeNotifier {
     }
 
     // Create a new log
-    _logs.insert(0, PloggingLog(
+    final newLog = PloggingLog(
       id: 'log_${DateTime.now().millisecondsSinceEpoch}',
       courseTitle: _selectedCourse!.title,
       date: '2026.07.17',
       collectedWeightKg: weightAdded,
       pointsEarned: _selectedCourse!.rewardPoints,
       trashSummary: trashSummary,
-    ));
+    );
+    _logs.insert(0, newLog);
 
     // Clear active mission state
     _isMissionActive = false;
@@ -829,17 +904,58 @@ class AppState extends ChangeNotifier {
 
     // Navigate to Clean Log tab (index 2) to let user see their coupon
     _currentTab = 2;
+    // 로컬 상태를 먼저 갱신해 화면이 즉시 반응하게 하고(낙관적 업데이트),
+    // Firestore 동기화는 백그라운드로 진행한다 — receiveReward()를 호출하는
+    // UI 콜백들이 모두 await 없는 동기 호출이라, 여기서 기다리게 만들면
+    // 화면이 응답 없이 멈춘 것처럼 보인다.
     notifyListeners();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirestoreService.instance
+          .incrementUserStats(
+            uid: user.uid,
+            pointsDelta: newLog.pointsEarned,
+            weightDeltaKg: weightAdded,
+          )
+          .then((_) => fetchRanking()); // 통계 반영 후 랭킹도 최신순으로 갱신
+      FirestoreService.instance.addLog(uid: user.uid, log: newLog);
+      FirestoreService.instance.addCoupon(uid: user.uid, coupon: newCoupon);
+    }
   }
 
-  void redeemCoupon(String couponId) {
+  /// 쿠폰을 사용 처리한다. 로컬 상태를 먼저 갱신해 화면이 즉시 반응하고,
+  /// Firestore 서버 검증 결과에 따라 필요하면 되돌린다 — 이미 사용된
+  /// 쿠폰이거나 존재하지 않는 쿠폰이면 로컬에서도 원래 상태로 복구한다.
+  /// 매장 QR 스캐너(StoreScannerScreen)에서의 검증도 이 메서드를 거친다.
+  Future<CouponRedeemResult> redeemCoupon(String couponId) async {
+    Coupon? target;
     for (var coupon in _coupons) {
       if (coupon.id == couponId) {
-        coupon.isUsed = true;
+        target = coupon;
         break;
       }
     }
+    if (target == null) return CouponRedeemResult.notFound;
+
+    final wasUsed = target.isUsed;
+    target.isUsed = true;
     notifyListeners();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return CouponRedeemResult.success; // 로그인 안 된 데모 상태는 로컬만 반영
+
+    final result = await FirestoreService.instance.redeemCoupon(
+      uid: user.uid,
+      couponId: couponId,
+    );
+
+    if (result != CouponRedeemResult.success) {
+      // 서버가 거절했으면 로컬 상태를 원래대로 되돌린다.
+      target.isUsed = wasUsed;
+      notifyListeners();
+    }
+    return result;
   }
 
   void resetMission() {
