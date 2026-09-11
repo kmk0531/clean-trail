@@ -99,6 +99,26 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
+                      // 가맹점 협의가 완료되기 전까지는 실제 매장으로 오인되지 않도록
+                      // 데모 화면임을 명시한다.
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '가맹점 협의 전 데모 화면입니다. 실제 매장 제휴가 아닙니다.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: '-apple-system',
+                            fontSize: 11,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       // Store Name
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -106,9 +126,9 @@ class _StoreScannerScreenState extends State<StoreScannerScreen> with SingleTick
                           const Icon(Icons.storefront, color: Color(0xFF3F9D68), size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            widget.appState.selectedCourse?.id == 'course_1' 
-                                ? '카페 브리즈 (제휴가맹점)' 
-                                : '○○ 가맹점 사장님 화면',
+                            widget.appState.selectedCourse?.id == 'course_1'
+                                ? '[예시] 해안 산책로 인근 카페 · 사장님 화면'
+                                : '[예시] ○○ 가맹점 사장님 화면',
                             style: const TextStyle(
                               fontFamily: '-apple-system',
                               fontSize: 16,

@@ -183,7 +183,7 @@ class ProfileScreen extends StatelessWidget {
                   _buildDivider(),
                   _buildSettingRow(context, Icons.person_outline, '계정 관리'),
                   _buildDivider(),
-                  _buildSettingRow(context, Icons.storefront_outlined, '제휴 상점 안내'),
+                  _buildSettingRow(context, Icons.storefront_outlined, '제휴 상점 안내 (준비 중)'),
                   _buildDivider(),
                   _buildSettingRow(context, Icons.help_outline, '도움말 및 고객센터'),
                 ],
@@ -195,7 +195,7 @@ class ProfileScreen extends StatelessWidget {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '제휴 가맹점주용',
+                '제휴 가맹점주용 (데모)',
                 style: TextStyle(
                   fontFamily: '-apple-system',
                   fontSize: 14,

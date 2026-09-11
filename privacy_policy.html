@@ -454,8 +454,8 @@
     수집 항목, 이용 목적, 보관 기간을 투명하게 안내드립니다.
   </p>
   <div class="meta-row">
-    <div class="meta-pill"><span class="k">시행일</span><span class="v">2026.09.01</span></div>
-    <div class="meta-pill"><span class="k">버전</span><span class="v">v1.0</span></div>
+    <div class="meta-pill"><span class="k">시행일</span><span class="v">2026.09.11</span></div>
+    <div class="meta-pill"><span class="k">버전</span><span class="v">v1.1</span></div>
     <div class="meta-pill"><span class="k">문서 조항</span><span class="v">8개 항목</span></div>
   </div>
 </div>
@@ -495,14 +495,14 @@
               <td><span class="tag">필수</span></td>
             </tr>
             <tr>
-              <td class="label">플로깅 미션 진행</td>
-              <td>실시간 GPS 위치 정보, 이동 경로, 활동 시간</td>
+              <td class="label">플로깅 코스 추천</td>
+              <td>코스 추천 시점의 위치 정보(1회성 조회)</td>
               <td><span class="tag">필수</span></td>
             </tr>
             <tr>
               <td class="label">AI 사진 인증</td>
-              <td>미션 전·후 촬영 사진(쓰레기 수거 인증용)</td>
-              <td><span class="tag">필수</span></td>
+              <td>미션 중 촬영한 쓰레기 인증 사진</td>
+              <td><span class="tag optional">선택</span></td>
             </tr>
             <tr>
               <td class="label">쿠폰 사용 및 랭킹</td>
@@ -539,11 +539,11 @@
             </tr>
             <tr>
               <td class="label">미션 검증</td>
-              <td>GPS 이동 경로 기록, 사진 인증을 통한 쓰레기 수거 여부 판별</td>
+              <td>사진 인증을 통한 쓰레기 수거 여부 판별</td>
             </tr>
             <tr>
               <td class="label">리워드 지급</td>
-              <td>탄소중립 포인트 적립, 지역 가맹점 모바일 쿠폰 발급 및 사용 처리</td>
+              <td>탄소중립 포인트 적립, 모바일 쿠폰(현재 데모 운영 중) 발급 및 사용 처리</td>
             </tr>
             <tr>
               <td class="label">서비스 개선</td>
@@ -562,14 +562,14 @@
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21C12 21 5 14.5 5 9.5C5 5.9 8.1 3 12 3C15.9 3 19 5.9 19 9.5C19 14.5 12 21 12 21Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="9.5" r="2.3" stroke="currentColor" stroke-width="1.7"/></svg>
           <div>
             <div class="perm-name">위치 정보 (필수)</div>
-            <div class="perm-desc">플로깅 코스 추천, 실시간 이동 경로 기록을 위해 사용 중 위치 접근이 필요합니다.</div>
+            <div class="perm-desc">현재 위치 기준으로 인근 플로깅 코스를 추천하기 위해 사용 중 위치 접근이 필요합니다. 실시간 이동 경로를 지속적으로 기록하지는 않습니다.</div>
           </div>
         </div>
         <div class="perm">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="7" width="18" height="13" rx="2.3" stroke="currentColor" stroke-width="1.7"/><path d="M8 7L9.6 4.5H14.4L16 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="13.5" r="3.3" stroke="currentColor" stroke-width="1.7"/></svg>
           <div>
-            <div class="perm-name">카메라 (필수)</div>
-            <div class="perm-desc">미션 시작·종료 시 쓰레기 수거 인증 사진 촬영을 위해 필요합니다.</div>
+            <div class="perm-name">카메라 (선택)</div>
+            <div class="perm-desc">쓰레기 수거 인증 사진 촬영에 사용됩니다. 동의하지 않아도 앱 이용은 가능하나 사진 인증 기능이 제한됩니다.</div>
           </div>
         </div>
         <div class="perm">
@@ -580,7 +580,7 @@
           </div>
         </div>
       </div>
-      <p>위치 권한은 iOS에서 <strong>"앱 사용 중"</strong> 및 <strong>"항상 허용"</strong> 두 단계로 안내되며, 미션 트래킹 중에만 실시간 위치를 수집합니다.</p>
+      <p>위치 권한은 iOS에서 <strong>"앱 사용 중"</strong> 및 <strong>"항상 허용"</strong> 두 단계로 안내되며, 현재 버전에서는 코스 추천 시점에만 위치를 조회합니다. 추후 미션 수행 중 실시간 위치 확인 기능이 추가될 경우 본 방침을 개정해 사전 고지합니다.</p>
     </section>
 
     <section class="card" id="s4">
@@ -597,15 +597,10 @@
           <span class="party-name">NAVER Cloud</span>
           <span class="party-desc">지도 렌더링 및 위치 기반 코스 시각화(Naver Maps API)</span>
         </div>
-        <div class="party">
-          <span class="party-dot"></span>
-          <span class="party-name">제휴 가맹점</span>
-          <span class="party-desc">모바일 쿠폰 사용 처리를 위한 쿠폰 식별 정보(익명화된 쿠폰 코드)</span>
-        </div>
       </div>
       <div class="notice">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9V13M12 17H12.01M10.3 3.9L2.7 17.5C2.3 18.2 2.8 19 3.6 19H20.4C21.2 19 21.7 18.2 21.3 17.5L13.7 3.9C13.3 3.2 12.7 3.2 12.3 3.9Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-        <p>법령에 특별한 규정이 있거나 수사기관이 적법한 절차에 따라 요청하는 경우를 제외하고, 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다.</p>
+        <p>현재 쿠폰 기능은 지자체·가맹점과의 협의가 완료되지 않은 데모 단계로, 쿠폰 정보가 외부 가맹점에 제공되지 않습니다. 실제 가맹점 제휴가 체결되면 위탁 대상과 처리 항목을 본 방침에 반영해 사전 고지합니다. 법령에 특별한 규정이 있거나 수사기관이 적법한 절차에 따라 요청하는 경우를 제외하고, 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다.</p>
       </div>
     </section>
 
@@ -638,11 +633,6 @@
               <td>3개월</td>
               <td>통신비밀보호법</td>
             </tr>
-            <tr>
-              <td class="label">실시간 GPS 위치 정보</td>
-              <td>미션 종료 후 30일</td>
-              <td>내부 방침</td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -663,7 +653,7 @@
       <h2><span class="idx">07</span>안전성 확보 조치</h2>
       <p>클린트레일은 개인정보 보호를 위해 다음과 같은 기술적·관리적 조치를 시행하고 있습니다.</p>
       <p>
-        <strong>비밀번호 암호화 저장</strong> — 이메일 회원의 비밀번호는 단방향 암호화(해시)하여 저장하며 평문으로 보관하지 않습니다.<br>
+        <strong>비밀번호 암호화 저장</strong> — 이메일 회원의 비밀번호는 Google Firebase Authentication을 통해 안전하게 암호화되어 저장되며, 클린트레일이 직접 평문으로 보관하거나 처리하지 않습니다.<br>
         <strong>접근 권한 최소화</strong> — 개인정보 처리 업무 담당자를 최소한으로 지정하여 운영합니다.<br>
         <strong>전송 구간 암호화</strong> — 로그인 및 위치 정보 전송 구간에 암호화 통신(TLS)을 적용합니다.
       </p>
@@ -684,7 +674,7 @@
 
 <footer>
   <span>© 2026 CleanTrail. All rights reserved.</span>
-  <span>본 방침은 2026년 9월 1일부터 시행됩니다.</span>
+  <span>본 방침은 2026년 9월 11일부터 시행됩니다.</span>
 </footer>
 
 <script>

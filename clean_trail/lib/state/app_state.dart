@@ -701,15 +701,15 @@ class AppState extends ChangeNotifier {
     _coupons = [
       Coupon(
         id: 'coupon_mock_1',
-        shopName: '카페 브리즈 (해안 산책로 인근)',
-        discountDetails: '아메리카노 30% 할인쿠폰',
+        shopName: '[예시] 해안 산책로 인근 카페',
+        discountDetails: '(가맹점 협의 전 데모) 아메리카노 30% 할인쿠폰',
         expiryDate: '2026.07.31',
         isUsed: false,
       ),
       Coupon(
         id: 'coupon_mock_2',
-        shopName: '전통한옥 떡갈비',
-        discountDetails: '식사 금액 10% 즉시 할인',
+        shopName: '[예시] 전통시장 골목 식당',
+        discountDetails: '(가맹점 협의 전 데모) 식사 금액 10% 즉시 할인',
         expiryDate: '2026.08.15',
         isUsed: true,
       ),
@@ -856,17 +856,21 @@ class AppState extends ChangeNotifier {
 
     // Create a new coupon
     String newCouponId = 'coupon_${DateTime.now().millisecondsSinceEpoch}';
+    // TODO(가맹점 협의): 실제 지자체/가맹점 계약이 체결되면 아래 이름과
+    // 혜택 내용을 실제 상호명으로 교체한다. 협의 전에는 "[예시]" 표기와
+    // "(가맹점 협의 전 데모)" 문구를 반드시 유지해 실존 가게로 오인되거나
+    // 과장광고로 비치지 않도록 한다.
     String shopName = _selectedCourse!.id == 'course_1'
-        ? '해안가 카페 브리즈'
+        ? '[예시] 해안 산책로 인근 카페'
         : _selectedCourse!.id == 'course_2'
-            ? '시장골목 고기만두집'
-            : '호수공원 피크닉 카페';
+            ? '[예시] 전통시장 골목 식당'
+            : '[예시] 호수공원 인근 카페';
 
     String discountDetails = _selectedCourse!.id == 'course_1'
-        ? '아메리카노 30% 즉시 할인'
+        ? '(가맹점 협의 전 데모) 아메리카노 30% 즉시 할인'
         : _selectedCourse!.id == 'course_2'
-            ? '수제 만두 1인분 무료 쿠폰'
-            : '돗자리 & 커피 2잔 세트 20% 할인';
+            ? '(가맹점 협의 전 데모) 대표 메뉴 1인분 무료 쿠폰'
+            : '(가맹점 협의 전 데모) 돗자리 & 음료 2잔 세트 20% 할인';
 
     final newCoupon = Coupon(
       id: newCouponId,
