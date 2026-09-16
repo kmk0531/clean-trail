@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "931258972668-0re264uc4hsej81gin5hon575temnrkm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cleantrail.app",
+            "certificate_hash": "37040412b9972b61010f8252f7fb0fd34867c971"
+          }
+        },
+        {
           "client_id": "931258972668-8vrj9g315ug956egc3oqh1qgl46tfsaf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
