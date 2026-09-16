@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/trash_item.dart';
 import '../state/app_state.dart';
 import '../widgets/ios_button.dart';
@@ -234,10 +235,44 @@ class MissionVerificationScreen extends StatelessWidget {
     );
   }
 
+  /// 카메라 시스템 권한 팝업을 띄우기 전에, 왜 이 권한이 필요한지 먼저
+  /// 안내 다이얼로그로 고지한다 (방송통신위원회 앱 접근권한 가이드라인 —
+  /// 권한 요청 전 사전 고지 및 동의 절차 필요). 이미 허용/영구거부 상태라면
+  /// 다시 물을 필요가 없으므로, 아직 한 번도 답하지 않은 경우에만 보여준다.
+  Future<void> _captureTrashItemWithConsent(BuildContext context) async {
+    final status = await Permission.camera.status;
+    if (status.isDenied) {
+      if (!context.mounted) return;
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('카메라 권한 안내'),
+          content: const Text(
+            '수거한 쓰레기를 인증하기 위한 사진 촬영에 카메라 권한이 필요합니다. '
+            '동의하지 않으면 사진 촬영 및 미션 인증을 진행할 수 없습니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      if (agreed != true) return;
+    }
+
+    await appState.captureTrashItem();
+  }
+
   Widget _buildCaptureButton(BuildContext context) {
     final isCapturing = appState.isCapturingTrashPhoto;
     return GestureDetector(
-      onTap: isCapturing ? null : () => appState.captureTrashItem(),
+      onTap: isCapturing ? null : () => _captureTrashItemWithConsent(context),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 22),

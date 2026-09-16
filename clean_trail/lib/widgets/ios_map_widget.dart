@@ -31,16 +31,44 @@ class _IosMapWidgetState extends State<IosMapWidget> {
   @override
   void initState() {
     super.initState();
-    _requestLocationPermission();
+    // 빌드가 끝난 뒤(안전하게 context를 쓸 수 있는 시점)에 권한 요청을 시작한다.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestLocationPermission());
   }
 
+  /// 위치 권한 시스템 팝업을 띄우기 전에, 왜 이 권한이 필요한지 먼저
+  /// 안내 다이얼로그로 고지한다 (방송통신위원회 앱 접근권한 가이드라인 —
+  /// 권한 요청 전 사전 고지 및 동의 절차 필요).
   Future<void> _requestLocationPermission() async {
     final status = await Permission.locationWhenInUse.status;
-    if (status.isDenied) {
-      await Permission.locationWhenInUse.request();
-      if (mounted) {
-        setState(() {});
-      }
+    if (!status.isDenied) return;
+    if (!mounted) return;
+
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('위치 권한 안내'),
+        content: const Text(
+          '현재 위치를 기준으로 인근 플로깅 코스를 지도에 표시하기 위해 '
+          '위치 권한이 필요합니다. 동의하지 않아도 앱을 이용할 수 있으나, '
+          '내 위치 기반 코스 추천 기능이 제한됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('나중에'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+    if (agreed != true) return;
+
+    await Permission.locationWhenInUse.request();
+    if (mounted) {
+      setState(() {});
     }
   }
 
