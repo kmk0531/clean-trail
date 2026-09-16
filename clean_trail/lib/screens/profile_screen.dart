@@ -179,13 +179,13 @@ class ProfileScreen extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  _buildSettingRow(context, Icons.notifications_none, '알림 설정'),
+                  _buildSettingRow(context, Icons.notifications_none, '알림 설정 (준비 중)'),
                   _buildDivider(),
-                  _buildSettingRow(context, Icons.person_outline, '계정 관리'),
+                  _buildSettingRow(context, Icons.person_outline, '계정 관리 (준비 중)'),
                   _buildDivider(),
                   _buildSettingRow(context, Icons.storefront_outlined, '제휴 상점 안내 (준비 중)'),
                   _buildDivider(),
-                  _buildSettingRow(context, Icons.help_outline, '도움말 및 고객센터'),
+                  _buildSettingRow(context, Icons.help_outline, '도움말 및 고객센터 (준비 중)'),
                 ],
               ),
             ),
@@ -305,7 +305,7 @@ class ProfileScreen extends StatelessWidget {
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
       onTap: () {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"$title" 설정 메뉴를 로드합니다.')),
+          const SnackBar(content: Text('아직 준비 중인 기능입니다.')),
         );
       },
     );
