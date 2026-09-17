@@ -378,12 +378,21 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               // Naver Login Button
+              // 실제 네이버 로그인 SDK 연동 전이라, 눌러도 로그인이 진행되지
+              // 않고 준비 중 안내만 표시한다 — 실제 계정 연동으로 오인하지
+              // 않도록 라벨에도 "(준비 중)"을 명시한다.
               GestureDetector(
-                onTap: _isLoading ? null : () => _handleSocialLogin('naver'),
+                onTap: _isLoading
+                    ? null
+                    : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('네이버 로그인은 아직 준비 중인 기능입니다.')),
+                        );
+                      },
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF03C75A), // Naver Green
+                    color: const Color(0xFF03C75A).withValues(alpha: 0.5), // Naver Green (준비 중 표시로 톤다운)
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Row(
@@ -400,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       SizedBox(width: 12),
                       Text(
-                        '네이버 계정으로 로그인',
+                        '네이버 계정으로 로그인 (준비 중)',
                         style: TextStyle(
                           fontFamily: '-apple-system',
                           fontSize: 14,
